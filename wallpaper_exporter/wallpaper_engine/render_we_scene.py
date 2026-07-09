@@ -63,6 +63,17 @@ def default_output_path(input_path: Path, width: int, height: int) -> Path:
     return output_dir / f"we_render_capture_{width}x{height}.png"
 
 
+def capture_output_paths(output_path: Path, capture_count: int) -> list[Path]:
+    if capture_count < 1:
+        raise ValueError("capture_count must be at least 1")
+
+    output = Path(output_path)
+    paths = [output]
+    for index in range(2, capture_count + 1):
+        paths.append(output.with_name(f"{output.stem}_{index:02d}{output.suffix}"))
+    return paths
+
+
 def build_open_wallpaper_command(
     wallpaper_exe: Path,
     wallpaper_file: Path,
@@ -472,12 +483,15 @@ def render_scene(
     topmost: bool = True,
     keep_open: bool = False,
     allow_black_capture: bool = False,
+    capture_count: int = 1,
+    capture_interval: float = 0.3,
 ) -> dict[str, Any]:
     set_process_dpi_aware()
     wallpaper_file = ensure_wallpaper_file(input_path)
     engine_wallpaper_file, stage_cleanup = stage_wallpaper_file_for_engine(wallpaper_file)
     resolved_exe = resolve_wallpaper_exe(wallpaper_exe)
     resolved_output = output_path or default_output_path(input_path, width, height)
+    output_paths = capture_output_paths(resolved_output, capture_count)
     name = window_name or f"CodexWERender-{os.getpid()}"
 
     open_command = build_open_wallpaper_command(
@@ -499,9 +513,12 @@ def render_scene(
         hwnd = wait_for_window(name, window_timeout)
         captured_size = prepare_window(hwnd, width, height, x=x, y=y, topmost=topmost)
         time.sleep(wait_seconds)
-        captured_size = capture_window_with_printwindow(
-            hwnd, resolved_output, allow_black_capture=allow_black_capture
-        )
+        for index, frame_output in enumerate(output_paths):
+            if index > 0:
+                time.sleep(capture_interval)
+            captured_size = capture_window_with_printwindow(
+                hwnd, frame_output, allow_black_capture=allow_black_capture
+            )
     finally:
         if not keep_open:
             close_wallpaper_window(close_command, process)
@@ -513,6 +530,7 @@ def render_scene(
         "wallpaper_file": str(wallpaper_file),
         "engine_wallpaper_file": str(engine_wallpaper_file),
         "output": str(resolved_output),
+        "outputs": [str(path) for path in output_paths],
         "requested_size": (width, height),
         "captured_size": captured_size,
         "window_name": name,
@@ -568,6 +586,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Save the frame even if it appears to be nearly black.",
     )
+    parser.add_argument(
+        "--captures",
+        type=int,
+        default=1,
+        help="Number of frames to capture from the same render window.",
+    )
+    parser.add_argument(
+        "--capture-interval",
+        type=float,
+        default=0.3,
+        help="Seconds to wait between burst captures.",
+    )
     return parser
 
 
@@ -609,6 +639,8 @@ def main(argv: list[str] | None = None) -> int:
             topmost=not args.no_topmost,
             keep_open=args.keep_open,
             allow_black_capture=args.allow_black_capture,
+            capture_count=args.captures,
+            capture_interval=args.capture_interval,
         )
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

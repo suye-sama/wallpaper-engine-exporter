@@ -101,6 +101,53 @@ def test_export_wallpaper_requires_confirmation_for_render_scene(tmp_path, monke
         )
 
 
+def test_export_wallpaper_renders_burst_candidates_when_allowed(tmp_path, monkeypatch):
+    scene_dir = tmp_path / "scene"
+    scene_dir.mkdir()
+    (scene_dir / "scene.json").write_text(
+        '{"general":{"orthogonalprojection":{"width":1,"height":1}},"objects":[]}',
+        encoding="utf-8",
+    )
+    entry = WallpaperEntry(
+        workshop_id="2",
+        title="Render",
+        root=scene_dir,
+        project_type="scene",
+        main_file=scene_dir / "scene.pkg",
+        has_scene_json=True,
+    )
+    calls = []
+
+    class RenderAnalysis:
+        method = "render"
+        reasons = ["puppet"]
+
+    def fake_compose_auto(input_path, output_path, **kwargs):
+        calls.append((input_path, output_path, kwargs))
+        second = output_path.with_name("render_02.png")
+        output_path.write_bytes(b"frame1")
+        second.write_bytes(b"frame2")
+        return {
+            "method": "render",
+            "summary": {"outputs": [str(output_path), str(second)]},
+        }
+
+    monkeypatch.setattr("wallpaper_exporter.exporter.analyze_scene", lambda path: RenderAnalysis())
+    monkeypatch.setattr("wallpaper_exporter.exporter.compose_auto", fake_compose_auto)
+
+    result = export_wallpaper(
+        entry,
+        make_settings(tmp_path),
+        ExportOptions(allow_render_capture=True),
+    )
+
+    assert result.method == "render"
+    assert calls[0][2]["capture_count"] == 5
+    assert calls[0][2]["capture_interval"] == 0.3
+    assert result.files["render"].name == "render.png"
+    assert result.files["render_02"].name == "render_02.png"
+
+
 def test_export_wallpaper_extracts_scene_pkg_before_composing(tmp_path, monkeypatch):
     item = tmp_path / "item"
     item.mkdir()

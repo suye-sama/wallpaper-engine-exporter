@@ -358,7 +358,7 @@ class MainWindow(QMainWindow):
             answer = QMessageBox.question(
                 self,
                 "需要抓图",
-                f"{entry.title}\n\n{exc}\n\n是否打开 Wallpaper Engine 抓取一帧？",
+                f"{entry.title}\n\n{exc}\n\n是否打开 Wallpaper Engine 连拍候选帧？",
             )
             if answer != QMessageBox.StandardButton.Yes:
                 self.statusBar().showMessage("已取消抓图", 5000)

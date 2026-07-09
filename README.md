@@ -90,7 +90,8 @@ D:\GAME\steam\steamapps\common\wallpaper_engine\wallpaper64.exe
 original.png / original.jpg      # 直接图片壁纸
 original.mp4 / original.webm     # 直接视频壁纸
 composite.png                    # 静态合成结果
-render.png                       # Wallpaper Engine 抓图结果
+render.png                       # Wallpaper Engine 抓图结果，第 1 张
+render_02.png ... render_05.png  # 动态壁纸抓图候选帧
 preview.jpg / preview.png        # 预览图
 info.json                        # 导出信息
 ```
@@ -118,6 +119,12 @@ info.json                        # 导出信息
 ```
 
 抓图默认会等待 20 秒再捕获，避免保存到 Wallpaper Engine 的 `Hold on / Compiling assets` 加载页。需要手动调整时可以加 `--wait 秒数`。
+
+桌面程序里同意 Wallpaper Engine 抓图后，会默认连拍 5 张候选帧，间隔 0.3 秒，方便避开眨眼、特效遮挡等瞬间。命令行也可以手动指定：
+
+```powershell
+.\.venv\Scripts\python.exe -m wallpaper_exporter.wallpaper_engine.render_we_scene "D:\GAME\steam\steamapps\workshop\content\431960\2777556065\project.json" -o "D:\base_tools\RePKG\待合成\output（星之砂浜）\render.png" --width 3840 --height 2160 --captures 5 --capture-interval 0.3
+```
 
 如果抓图输出接近全黑，脚本会报错，不会默默保存坏图。遇到这种情况，优先传原始 Workshop 目录里的 `project.json` 或 `scene.pkg`。
 

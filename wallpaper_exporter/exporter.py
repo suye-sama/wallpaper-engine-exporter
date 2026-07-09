@@ -20,6 +20,8 @@ class ExportOptions:
     allow_render_capture: bool = False
     width: int | None = None
     height: int | None = None
+    render_capture_count: int = 5
+    render_capture_interval: float = 0.3
 
 
 @dataclass(frozen=True)
@@ -69,6 +71,8 @@ def export_wallpaper(
             width=options.width,
             height=options.height,
             wallpaper_exe=settings.wallpaper_exe,
+            capture_count=options.render_capture_count,
+            capture_interval=options.render_capture_interval,
         )
         method = "render"
     else:
@@ -83,7 +87,7 @@ def export_wallpaper(
         if method == "render" and not options.allow_render_capture:
             raise ExportNeedsRenderCapture("render capture required")
 
-    files = {method: output_path}
+    files = _render_files(method, output_path, result)
     _copy_preview(entry, output_dir, files)
     _write_info(entry, output_dir, method, files, result)
     return ExportResult(method=method, output_dir=output_dir, files=files)
@@ -101,6 +105,18 @@ def _export_direct_media(entry: WallpaperEntry, output_dir: Path) -> ExportResul
 
 def _is_direct_media(path: Path | None) -> bool:
     return bool(path and path.suffix.lower() in DIRECT_MEDIA_SUFFIXES and path.exists())
+
+
+def _render_files(method: str, output_path: Path, result: dict[str, Any]) -> dict[str, Path]:
+    if method != "render":
+        return {method: output_path}
+
+    outputs = result.get("summary", {}).get("outputs") or [str(output_path)]
+    files: dict[str, Path] = {}
+    for index, item in enumerate(outputs):
+        key = "render" if index == 0 else f"render_{index + 1:02d}"
+        files[key] = Path(item)
+    return files
 
 
 def _scene_root_for(entry: WallpaperEntry) -> Path | None:

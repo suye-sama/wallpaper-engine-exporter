@@ -3,14 +3,17 @@ from pathlib import Path
 
 from PIL import Image
 
+import wallpaper_exporter.wallpaper_engine.render_we_scene as render_module
 from wallpaper_exporter.wallpaper_engine.render_we_scene import (
     build_close_wallpaper_command,
     build_open_wallpaper_command,
+    capture_output_paths,
     build_parser,
     default_output_path,
     ensure_wallpaper_file,
     image_is_nearly_black,
     launch_wallpaper_window,
+    render_scene,
     stage_wallpaper_file_for_engine,
 )
 
@@ -93,6 +96,79 @@ def test_default_output_path_uses_input_parent_and_resolution():
     output = default_output_path(Path(r"D:\workshop\project.json"), 1280, 720)
 
     assert output == Path(r"D:\workshop\we_render_capture_1280x720.png")
+
+
+def test_capture_output_paths_keeps_primary_render_name():
+    output_paths = capture_output_paths(Path(r"D:\out\render.png"), 3)
+
+    assert output_paths == [
+        Path(r"D:\out\render.png"),
+        Path(r"D:\out\render_02.png"),
+        Path(r"D:\out\render_03.png"),
+    ]
+
+
+def test_render_scene_captures_burst_frames_in_one_window(tmp_path, monkeypatch):
+    input_path = tmp_path / "project.json"
+    input_path.write_text('{"file":"scene.json"}', encoding="utf-8")
+    output_path = tmp_path / "render.png"
+    captures = []
+    sleeps = []
+    closed = []
+
+    class DummyProcess:
+        pass
+
+    monkeypatch.setattr(render_module, "set_process_dpi_aware", lambda: None)
+    monkeypatch.setattr(render_module, "ensure_wallpaper_file", lambda path: input_path)
+    monkeypatch.setattr(
+        render_module,
+        "stage_wallpaper_file_for_engine",
+        lambda path: (path, None),
+    )
+    monkeypatch.setattr(
+        render_module,
+        "resolve_wallpaper_exe",
+        lambda explicit_path=None: Path(r"D:\we\wallpaper64.exe"),
+    )
+    monkeypatch.setattr(render_module, "launch_wallpaper_window", lambda command: DummyProcess())
+    monkeypatch.setattr(render_module, "wait_for_window", lambda title, timeout: 123)
+    monkeypatch.setattr(
+        render_module,
+        "prepare_window",
+        lambda hwnd, width, height, **kwargs: (width, height),
+    )
+    monkeypatch.setattr(render_module.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    def fake_capture(hwnd, path, *, allow_black_capture=False):
+        captures.append(path)
+        path.write_bytes(b"png")
+        return (3840, 2160)
+
+    monkeypatch.setattr(render_module, "capture_window_with_printwindow", fake_capture)
+    monkeypatch.setattr(
+        render_module,
+        "close_wallpaper_window",
+        lambda command, process: closed.append(command),
+    )
+
+    summary = render_scene(
+        input_path,
+        output_path,
+        wait_seconds=20.0,
+        capture_count=3,
+        capture_interval=0.3,
+    )
+
+    assert captures == [
+        output_path,
+        tmp_path / "render_02.png",
+        tmp_path / "render_03.png",
+    ]
+    assert sleeps == [20.0, 0.3, 0.3]
+    assert summary["output"] == str(output_path)
+    assert summary["outputs"] == [str(path) for path in captures]
+    assert closed
 
 
 def test_launch_wallpaper_window_uses_non_blocking_popen(monkeypatch):

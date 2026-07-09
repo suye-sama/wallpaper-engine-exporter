@@ -123,6 +123,8 @@ def compose_auto(
     window_timeout: float = 10.0,
     window_name: str | None = None,
     keep_open: bool = False,
+    capture_count: int = 1,
+    capture_interval: float = 0.3,
     draw_hidden: bool = False,
     fallback_to_render: bool = True,
 ) -> dict[str, Any]:
@@ -170,6 +172,8 @@ def compose_auto(
         window_timeout=window_timeout,
         window_name=window_name,
         keep_open=keep_open,
+        capture_count=capture_count,
+        capture_interval=capture_interval,
     )
     return {
         "method": "render",
@@ -230,6 +234,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--window-name", help="Temporary Wallpaper Engine window name.")
     parser.add_argument("--keep-open", action="store_true", help="Keep render window open.")
     parser.add_argument(
+        "--captures",
+        type=int,
+        default=1,
+        help="Number of frames to capture from the same render window.",
+    )
+    parser.add_argument(
+        "--capture-interval",
+        type=float,
+        default=0.3,
+        help="Seconds to wait between burst captures.",
+    )
+    parser.add_argument(
         "--draw-hidden",
         action="store_true",
         help="Include scene objects whose visible value is false.",
@@ -280,6 +296,8 @@ def main(argv: list[str] | None = None) -> int:
             window_timeout=args.window_timeout,
             window_name=args.window_name,
             keep_open=args.keep_open,
+            capture_count=args.captures,
+            capture_interval=args.capture_interval,
             draw_hidden=args.draw_hidden,
             fallback_to_render=not args.no_fallback,
         )
