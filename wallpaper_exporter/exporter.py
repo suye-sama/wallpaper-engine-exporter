@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+import json
+import shutil
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from compose_we_auto import analyze_scene, compose_auto
+
+from .indexer import DIRECT_IMAGE_SUFFIXES, WallpaperEntry
+from .paths import export_folder_for
+from .settings import AppSettings
+
+
+@dataclass(frozen=True)
+class ExportOptions:
+    allow_render_capture: bool = False
+    width: int | None = None
+    height: int | None = None
+
+
+@dataclass(frozen=True)
+class ExportResult:
+    method: str
+    output_dir: Path
+    files: dict[str, Path] = field(default_factory=dict)
+    message: str = ""
+
+
+class ExportNeedsRenderCapture(RuntimeError):
+    pass
+
+
+def export_wallpaper(
+    entry: WallpaperEntry, settings: AppSettings, options: ExportOptions
+) -> ExportResult:
+    output_dir = export_folder_for(settings.export_root, entry.title)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if _is_direct_image(entry.main_file):
+        return _export_direct_image(entry, output_dir)
+
+    scene_root = _scene_root_for(entry)
+    if scene_root is None:
+        raise RuntimeError(f"No exportable image or scene found for {entry.title}")
+
+    if not (scene_root / "scene.json").exists():
+        if entry.has_scene_pkg:
+            raise RuntimeError("scene.pkg exists but extracted scene.json is missing")
+        raise RuntimeError(f"Scene folder does not contain scene.json: {scene_root}")
+
+    analysis = analyze_scene(scene_root)
+    if analysis.method == "render" and not options.allow_render_capture:
+        raise ExportNeedsRenderCapture("; ".join(analysis.reasons))
+
+    if analysis.method == "render":
+        output_path = output_dir / "render.png"
+        result = compose_auto(
+            scene_root,
+            output_path,
+            force="render",
+            width=options.width,
+            height=options.height,
+            wallpaper_exe=settings.wallpaper_exe,
+        )
+        method = "render"
+    else:
+        output_path = output_dir / "composite.png"
+        result = compose_auto(
+            scene_root,
+            output_path,
+            force="static",
+            fallback_to_render=False,
+        )
+        method = str(result.get("method", "static"))
+        if method == "render" and not options.allow_render_capture:
+            raise ExportNeedsRenderCapture("render capture required")
+
+    files = {method: output_path}
+    _copy_preview(entry, output_dir, files)
+    _write_info(entry, output_dir, method, files, result)
+    return ExportResult(method=method, output_dir=output_dir, files=files)
+
+
+def _export_direct_image(entry: WallpaperEntry, output_dir: Path) -> ExportResult:
+    assert entry.main_file is not None
+    output_path = output_dir / f"original{entry.main_file.suffix.lower()}"
+    shutil.copy2(entry.main_file, output_path)
+    files = {"original": output_path}
+    _copy_preview(entry, output_dir, files)
+    _write_info(entry, output_dir, "direct", files, {})
+    return ExportResult(method="direct", output_dir=output_dir, files=files)
+
+
+def _is_direct_image(path: Path | None) -> bool:
+    return bool(path and path.suffix.lower() in DIRECT_IMAGE_SUFFIXES and path.exists())
+
+
+def _scene_root_for(entry: WallpaperEntry) -> Path | None:
+    if entry.has_scene_json or (entry.root / "scene.json").exists():
+        return entry.root
+    if entry.main_file and entry.main_file.name.lower() == "scene.json":
+        return entry.main_file.parent
+    return entry.root if entry.project_type == "scene" else None
+
+
+def _copy_preview(
+    entry: WallpaperEntry, output_dir: Path, files: dict[str, Path]
+) -> None:
+    if not entry.preview_path or not entry.preview_path.exists():
+        return
+    preview_path = output_dir / f"preview{entry.preview_path.suffix.lower()}"
+    shutil.copy2(entry.preview_path, preview_path)
+    files["preview"] = preview_path
+
+
+def _write_info(
+    entry: WallpaperEntry,
+    output_dir: Path,
+    method: str,
+    files: dict[str, Path],
+    detail: dict[str, Any],
+) -> None:
+    info_path = output_dir / "info.json"
+    payload = {
+        "title": entry.title,
+        "workshop_id": entry.workshop_id,
+        "source_path": str(entry.root),
+        "method": method,
+        "files": {key: str(value) for key, value in files.items()},
+        "detail": detail,
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+    }
+    info_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    files["info"] = info_path
