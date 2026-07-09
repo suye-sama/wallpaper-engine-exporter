@@ -169,3 +169,7 @@ dist\WallpaperExporter.exe
 - 可以打包成 exe，但还没有安装器和自动更新。
 - 扫描和导出当前在窗口进程里执行，处理特别大的壁纸时界面可能短暂等待。
 - 动态壁纸不存在真正意义上的“原始静态图”时，只能通过 Wallpaper Engine 抓取当前画面。
+
+## License
+
+MIT
