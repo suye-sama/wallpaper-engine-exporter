@@ -6,6 +6,7 @@ __pycache__/
 # Runtime/export artifacts generated while testing wallpaper output.
 *.log
 log.txt
+wallpaper_exporter_settings.json
 composite_*.png
 we_render*.png
 materials_top_png_composite.png
