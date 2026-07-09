@@ -124,7 +124,14 @@ def extract_scene_pkg(scene_pkg: Path, destination: Path, repkg_path: Path) -> N
         raise FileNotFoundError(f"scene.pkg not found: {scene_pkg}")
 
     destination.mkdir(parents=True, exist_ok=True)
-    command = [str(repkg_path), "extract", str(scene_pkg), "-o", str(destination)]
+    command = [
+        str(repkg_path),
+        "extract",
+        str(scene_pkg),
+        "-o",
+        str(destination),
+        "--overwrite",
+    ]
     completed = subprocess.run(
         command,
         capture_output=True,

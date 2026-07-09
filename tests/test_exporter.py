@@ -5,6 +5,7 @@ import pytest
 from wallpaper_exporter.exporter import (
     ExportNeedsRenderCapture,
     ExportOptions,
+    extract_scene_pkg,
     export_wallpaper,
 )
 from wallpaper_exporter.indexer import WallpaperEntry
@@ -113,3 +114,30 @@ def test_export_wallpaper_extracts_scene_pkg_before_composing(tmp_path, monkeypa
 
     assert result.method == "static"
     assert calls == [(scene_pkg, item, settings.repkg_path)]
+
+
+def test_extract_scene_pkg_uses_overwrite_flag(tmp_path, monkeypatch):
+    repkg = tmp_path / "RePKG.exe"
+    repkg.write_bytes(b"exe")
+    scene_pkg = tmp_path / "scene.pkg"
+    scene_pkg.write_bytes(b"pkg")
+    destination = tmp_path / "out"
+    commands = []
+
+    class Completed:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        (destination / "scene.json").write_text("{}", encoding="utf-8")
+        return Completed()
+
+    monkeypatch.setattr("wallpaper_exporter.exporter.subprocess.run", fake_run)
+
+    extract_scene_pkg(scene_pkg, destination, repkg)
+
+    assert commands == [
+        [str(repkg), "extract", str(scene_pkg), "-o", str(destination), "--overwrite"]
+    ]
