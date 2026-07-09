@@ -5,7 +5,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-DIRECT_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+DIRECT_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
+DIRECT_VIDEO_SUFFIXES = {".mp4", ".webm", ".mov", ".m4v", ".avi", ".wmv", ".mkv"}
+DIRECT_MEDIA_SUFFIXES = DIRECT_IMAGE_SUFFIXES | DIRECT_VIDEO_SUFFIXES
 PREVIEW_NAMES = ("preview.jpg", "preview.png", "preview.gif")
 
 
@@ -112,7 +114,7 @@ def _find_direct_images(root: Path) -> list[Path]:
         (
             path
             for path in root.iterdir()
-            if path.is_file() and path.suffix.lower() in DIRECT_IMAGE_SUFFIXES
+            if path.is_file() and path.suffix.lower() in DIRECT_MEDIA_SUFFIXES
         ),
         key=lambda path: path.name.lower(),
     )

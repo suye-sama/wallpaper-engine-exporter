@@ -10,7 +10,7 @@ from typing import Any
 
 from .wallpaper_engine.compose_we_auto import analyze_scene, compose_auto
 
-from .indexer import DIRECT_IMAGE_SUFFIXES, WallpaperEntry
+from .indexer import DIRECT_MEDIA_SUFFIXES, WallpaperEntry
 from .paths import export_folder_for
 from .settings import AppSettings
 
@@ -40,8 +40,8 @@ def export_wallpaper(
     output_dir = export_folder_for(settings.export_root, entry.title)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if _is_direct_image(entry.main_file):
-        return _export_direct_image(entry, output_dir)
+    if _is_direct_media(entry.main_file):
+        return _export_direct_media(entry, output_dir)
 
     scene_root = _scene_root_for(entry)
     if scene_root is None:
@@ -89,7 +89,7 @@ def export_wallpaper(
     return ExportResult(method=method, output_dir=output_dir, files=files)
 
 
-def _export_direct_image(entry: WallpaperEntry, output_dir: Path) -> ExportResult:
+def _export_direct_media(entry: WallpaperEntry, output_dir: Path) -> ExportResult:
     assert entry.main_file is not None
     output_path = output_dir / f"original{entry.main_file.suffix.lower()}"
     shutil.copy2(entry.main_file, output_path)
@@ -99,8 +99,8 @@ def _export_direct_image(entry: WallpaperEntry, output_dir: Path) -> ExportResul
     return ExportResult(method="direct", output_dir=output_dir, files=files)
 
 
-def _is_direct_image(path: Path | None) -> bool:
-    return bool(path and path.suffix.lower() in DIRECT_IMAGE_SUFFIXES and path.exists())
+def _is_direct_media(path: Path | None) -> bool:
+    return bool(path and path.suffix.lower() in DIRECT_MEDIA_SUFFIXES and path.exists())
 
 
 def _scene_root_for(entry: WallpaperEntry) -> Path | None:

@@ -28,7 +28,12 @@ from PySide6.QtWidgets import (
 )
 
 from .exporter import ExportNeedsRenderCapture, ExportOptions, export_wallpaper
-from .indexer import WallpaperEntry, scan_workshop
+from .indexer import (
+    DIRECT_IMAGE_SUFFIXES,
+    DIRECT_VIDEO_SUFFIXES,
+    WallpaperEntry,
+    scan_workshop,
+)
 from .settings import AppSettings, load_settings, save_settings
 
 
@@ -394,8 +399,10 @@ class MainWindow(QMainWindow):
 def _status_for_entry(entry: WallpaperEntry) -> str:
     if entry.error:
         return "无法读取"
-    if entry.main_file and entry.main_file.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".bmp"}:
+    if entry.main_file and entry.main_file.suffix.lower() in DIRECT_IMAGE_SUFFIXES:
         return "直接图片"
+    if entry.main_file and entry.main_file.suffix.lower() in DIRECT_VIDEO_SUFFIXES:
+        return "直接视频"
     if entry.has_scene_json:
         return "可尝试静态合成"
     if entry.has_scene_pkg:

@@ -4,7 +4,7 @@
 
 它会扫描本机 Steam Workshop 里的 Wallpaper Engine 壁纸，尽量用最直接的方式导出图片：
 
-1. 普通图片壁纸：直接复制原图。
+1. 普通图片/视频壁纸：直接复制原始媒体文件。
 2. `scene.pkg` 壁纸：用 RePKG 解包。
 3. 可静态还原的场景：合成 `scene.json` 里的图片图层。
 4. 静态合不了的动态/模型场景：先询问你，再用 Wallpaper Engine 打开临时窗口抓图。
@@ -88,6 +88,7 @@ D:\GAME\steam\steamapps\common\wallpaper_engine\wallpaper64.exe
 
 ```text
 original.png / original.jpg      # 直接图片壁纸
+original.mp4 / original.webm     # 直接视频壁纸
 composite.png                    # 静态合成结果
 render.png                       # Wallpaper Engine 抓图结果
 preview.jpg / preview.png        # 预览图

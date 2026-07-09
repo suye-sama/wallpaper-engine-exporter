@@ -42,6 +42,32 @@ def test_export_wallpaper_copies_direct_image_and_writes_info(tmp_path):
     assert info["method"] == "direct"
 
 
+def test_export_wallpaper_copies_direct_video_and_writes_info(tmp_path):
+    source = tmp_path / "[ 4K-60 ] SilverVale.mp4"
+    source.write_bytes(b"mp4")
+    entry = WallpaperEntry(
+        workshop_id="3611760129",
+        title="Silvervale Summer 2025 [4K-60FPS]",
+        root=tmp_path,
+        project_type="video",
+        main_file=source,
+    )
+
+    result = export_wallpaper(entry, make_settings(tmp_path), ExportOptions())
+
+    output_dir = (
+        tmp_path
+        / "exports"
+        / "导出原图"
+        / "Silvervale Summer 2025 [4K-60FPS]"
+    )
+    info = json.loads((output_dir / "info.json").read_text(encoding="utf-8"))
+    assert result.method == "direct"
+    assert (output_dir / "original.mp4").read_bytes() == b"mp4"
+    assert info["workshop_id"] == "3611760129"
+    assert info["files"]["original"].endswith("original.mp4")
+
+
 def test_export_wallpaper_requires_confirmation_for_render_scene(tmp_path, monkeypatch):
     scene_dir = tmp_path / "scene"
     scene_dir.mkdir()
