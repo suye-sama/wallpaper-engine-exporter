@@ -23,6 +23,7 @@ PW_RENDERFULLCONTENT = 0x00000002
 _WIN32_DLLS: tuple[Any, Any] | None = None
 STAGE_IGNORE_PREFIXES = ("we_render", "composite")
 STAGE_IGNORE_NAMES = {"steam_preview.jpg", "materials_top_png_composite.png"}
+DEFAULT_RENDER_WAIT_SECONDS = 20.0
 
 
 def ensure_wallpaper_file(input_path: Path) -> Path:
@@ -464,7 +465,7 @@ def render_scene(
     x: int = 0,
     y: int = 0,
     window_name: str | None = None,
-    wait_seconds: float = 3.0,
+    wait_seconds: float = DEFAULT_RENDER_WAIT_SECONDS,
     window_timeout: float = 10.0,
     activate: bool = True,
     borderless: bool = True,
@@ -543,7 +544,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--wait",
         type=float,
-        default=3.0,
+        default=DEFAULT_RENDER_WAIT_SECONDS,
         help="Seconds to wait after opening before capture.",
     )
     parser.add_argument(

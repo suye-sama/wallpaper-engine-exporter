@@ -117,6 +117,8 @@ info.json                        # 导出信息
 .\.venv\Scripts\python.exe -m wallpaper_exporter.wallpaper_engine.render_we_scene "D:\GAME\steam\steamapps\workshop\content\431960\2777556065\project.json" -o "D:\base_tools\RePKG\待合成\output（星之砂浜）\render.png" --width 3840 --height 2160
 ```
 
+抓图默认会等待 20 秒再捕获，避免保存到 Wallpaper Engine 的 `Hold on / Compiling assets` 加载页。需要手动调整时可以加 `--wait 秒数`。
+
 如果抓图输出接近全黑，脚本会报错，不会默默保存坏图。遇到这种情况，优先传原始 Workshop 目录里的 `project.json` 或 `scene.pkg`。
 
 ## 运行测试

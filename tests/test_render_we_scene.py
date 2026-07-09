@@ -119,7 +119,7 @@ def test_launch_wallpaper_window_uses_non_blocking_popen(monkeypatch):
 def test_parser_defaults_wait_long_enough_for_scene_first_frame():
     args = build_parser().parse_args(["scene-folder"])
 
-    assert args.wait == 3.0
+    assert args.wait == 20.0
 
 
 def test_stage_wallpaper_file_for_engine_returns_ascii_paths_unchanged(tmp_path):

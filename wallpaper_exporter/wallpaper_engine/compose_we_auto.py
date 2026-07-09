@@ -15,7 +15,7 @@ from .compose_we_static import (
     material_png_for_model,
     read_json,
 )
-from .render_we_scene import render_scene
+from .render_we_scene import DEFAULT_RENDER_WAIT_SECONDS, render_scene
 
 
 @dataclass
@@ -119,7 +119,7 @@ def compose_auto(
     width: int | None = None,
     height: int | None = None,
     wallpaper_exe: Path | None = None,
-    wait_seconds: float = 3.0,
+    wait_seconds: float = DEFAULT_RENDER_WAIT_SECONDS,
     window_timeout: float = 10.0,
     window_name: str | None = None,
     keep_open: bool = False,
@@ -215,7 +215,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--width", type=int, help="Render width for capture fallback.")
     parser.add_argument("--height", type=int, help="Render height for capture fallback.")
     parser.add_argument("--wallpaper-exe", type=Path, help="Path to wallpaper64.exe.")
-    parser.add_argument("--wait", type=float, default=3.0, help="Seconds to wait before capture.")
+    parser.add_argument(
+        "--wait",
+        type=float,
+        default=DEFAULT_RENDER_WAIT_SECONDS,
+        help="Seconds to wait before capture.",
+    )
     parser.add_argument(
         "--window-timeout",
         type=float,

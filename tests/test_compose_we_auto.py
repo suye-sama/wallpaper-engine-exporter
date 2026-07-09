@@ -158,3 +158,4 @@ def test_compose_auto_calls_renderer_for_puppet_scene(tmp_path, monkeypatch):
     assert calls[0][1] == tmp_path / "auto.png"
     assert calls[0][2]["width"] == 100
     assert calls[0][2]["height"] == 50
+    assert calls[0][2]["wait_seconds"] == 20.0
