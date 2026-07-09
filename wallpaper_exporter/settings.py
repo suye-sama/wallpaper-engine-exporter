@@ -1,0 +1,52 @@
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_WORKSHOP_DIR = Path(r"D:\GAME\steam\steamapps\workshop\content\431960")
+DEFAULT_REPKG_PATH = PROJECT_ROOT / "tools" / "RePKG" / "RePKG.exe"
+DEFAULT_WALLPAPER_EXE = Path(
+    r"D:\GAME\steam\steamapps\common\wallpaper_engine\wallpaper64.exe"
+)
+DEFAULT_EXPORT_ROOT = Path.home() / "Pictures" / "Wallpaper Engine Exports"
+DEFAULT_SETTINGS_PATH = PROJECT_ROOT / "wallpaper_exporter_settings.json"
+
+
+@dataclass(frozen=True)
+class AppSettings:
+    workshop_dir: Path = DEFAULT_WORKSHOP_DIR
+    export_root: Path = DEFAULT_EXPORT_ROOT
+    repkg_path: Path = DEFAULT_REPKG_PATH
+    wallpaper_exe: Path = DEFAULT_WALLPAPER_EXE
+
+
+def _coerce_settings(payload: dict[str, Any]) -> AppSettings:
+    defaults = AppSettings()
+    values = asdict(defaults)
+    values.update({key: Path(value) for key, value in payload.items() if key in values})
+    return AppSettings(**values)
+
+
+def load_settings(path: Path | None = None) -> AppSettings:
+    settings_path = Path(path) if path is not None else DEFAULT_SETTINGS_PATH
+    if not settings_path.exists():
+        return AppSettings()
+
+    with settings_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"Settings file must contain a JSON object: {settings_path}")
+    return _coerce_settings(payload)
+
+
+def save_settings(settings: AppSettings, path: Path | None = None) -> None:
+    settings_path = Path(path) if path is not None else DEFAULT_SETTINGS_PATH
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {key: str(value) for key, value in asdict(settings).items()}
+    settings_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
