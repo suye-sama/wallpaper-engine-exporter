@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+
+# Runtime/export artifacts generated while testing wallpaper output.
+*.log
+log.txt
+composite_*.png
+we_render*.png
+materials_top_png_composite.png
+_codex_render_project.json
+
+# Local worktrees, if used later.
+.worktrees/
+worktrees/
