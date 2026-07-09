@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .ui import run_app
+
 
 def main() -> int:
-    return 0
+    return run_app()
