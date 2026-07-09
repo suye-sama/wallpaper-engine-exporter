@@ -72,3 +72,44 @@ def test_export_wallpaper_requires_confirmation_for_render_scene(tmp_path, monke
             make_settings(tmp_path),
             ExportOptions(allow_render_capture=False),
         )
+
+
+def test_export_wallpaper_extracts_scene_pkg_before_composing(tmp_path, monkeypatch):
+    item = tmp_path / "item"
+    item.mkdir()
+    scene_pkg = item / "scene.pkg"
+    scene_pkg.write_bytes(b"pkg")
+    entry = WallpaperEntry(
+        workshop_id="3",
+        title="Packed",
+        root=item,
+        project_type="scene",
+        main_file=scene_pkg,
+        has_scene_pkg=True,
+    )
+    settings = make_settings(tmp_path)
+    settings.repkg_path.write_bytes(b"exe")
+    calls = []
+
+    def fake_extract(pkg, destination, repkg):
+        calls.append((pkg, destination, repkg))
+        (destination / "scene.json").write_text(
+            '{"general":{"orthogonalprojection":{"width":1,"height":1}},"objects":[]}',
+            encoding="utf-8",
+        )
+
+    def fake_compose_auto(input_path, output_path, **kwargs):
+        output_path.write_bytes(b"png")
+        return {"method": "static", "analysis": {"reasons": ["regular"]}}
+
+    monkeypatch.setattr(
+        "wallpaper_exporter.exporter.extract_scene_pkg",
+        fake_extract,
+        raising=False,
+    )
+    monkeypatch.setattr("wallpaper_exporter.exporter.compose_auto", fake_compose_auto)
+
+    result = export_wallpaper(entry, settings, ExportOptions())
+
+    assert result.method == "static"
+    assert calls == [(scene_pkg, item, settings.repkg_path)]

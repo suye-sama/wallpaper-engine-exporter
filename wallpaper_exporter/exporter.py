@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,7 +49,11 @@ def export_wallpaper(
 
     if not (scene_root / "scene.json").exists():
         if entry.has_scene_pkg:
+            scene_pkg = _scene_pkg_for(entry, scene_root)
+            extract_scene_pkg(scene_pkg, scene_root, settings.repkg_path)
+        if not (scene_root / "scene.json").exists():
             raise RuntimeError("scene.pkg exists but extracted scene.json is missing")
+    if not (scene_root / "scene.json").exists():
         raise RuntimeError(f"Scene folder does not contain scene.json: {scene_root}")
 
     analysis = analyze_scene(scene_root)
@@ -104,6 +109,34 @@ def _scene_root_for(entry: WallpaperEntry) -> Path | None:
     if entry.main_file and entry.main_file.name.lower() == "scene.json":
         return entry.main_file.parent
     return entry.root if entry.project_type == "scene" else None
+
+
+def _scene_pkg_for(entry: WallpaperEntry, scene_root: Path) -> Path:
+    if entry.main_file and entry.main_file.name.lower() == "scene.pkg":
+        return entry.main_file
+    return scene_root / "scene.pkg"
+
+
+def extract_scene_pkg(scene_pkg: Path, destination: Path, repkg_path: Path) -> None:
+    if not repkg_path.exists():
+        raise FileNotFoundError(f"RePKG.exe not found: {repkg_path}")
+    if not scene_pkg.exists():
+        raise FileNotFoundError(f"scene.pkg not found: {scene_pkg}")
+
+    destination.mkdir(parents=True, exist_ok=True)
+    command = [str(repkg_path), "extract", str(scene_pkg), "-o", str(destination)]
+    completed = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        details = (completed.stderr or completed.stdout or "").strip()
+        raise RuntimeError(f"RePKG extraction failed: {details}")
+    if not (destination / "scene.json").exists():
+        details = (completed.stdout or completed.stderr or "").strip()
+        raise RuntimeError(f"RePKG extraction did not create scene.json: {details}")
 
 
 def _copy_preview(
