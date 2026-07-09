@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from compose_we_auto import analyze_scene, compose_auto
+from .wallpaper_engine.compose_we_auto import analyze_scene, compose_auto
 
 from .indexer import DIRECT_IMAGE_SUFFIXES, WallpaperEntry
 from .paths import export_folder_for

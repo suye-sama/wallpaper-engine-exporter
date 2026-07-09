@@ -1,6 +1,9 @@
 from PIL import Image
 
-from compose_we_static import apply_opacity_mask, material_png_for_model
+from wallpaper_exporter.wallpaper_engine.compose_we_static import (
+    apply_opacity_mask,
+    material_png_for_model,
+)
 
 
 def test_apply_opacity_mask_multiplies_alpha_by_mask_luminance():

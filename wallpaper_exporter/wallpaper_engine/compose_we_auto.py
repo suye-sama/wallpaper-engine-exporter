@@ -9,13 +9,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from compose_we_static import (
+from .compose_we_static import (
     compose_scene,
     is_visible,
     material_png_for_model,
     read_json,
 )
-from render_we_scene import render_scene
+from .render_we_scene import render_scene
 
 
 @dataclass

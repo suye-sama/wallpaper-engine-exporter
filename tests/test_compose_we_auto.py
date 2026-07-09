@@ -3,7 +3,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from compose_we_auto import analyze_scene, compose_auto
+from wallpaper_exporter.wallpaper_engine.compose_we_auto import analyze_scene, compose_auto
 
 
 def write_scene(root: Path, objects: list[dict]) -> None:
@@ -105,9 +105,12 @@ def test_compose_auto_calls_static_composer_for_static_scene(tmp_path, monkeypat
         calls.append((input_dir, output_path, draw_hidden))
         return {"output": str(output_path), "drawn": [{"name": "bg"}], "skipped": []}
 
-    monkeypatch.setattr("compose_we_auto.compose_scene", fake_compose_scene)
     monkeypatch.setattr(
-        "compose_we_auto.render_scene",
+        "wallpaper_exporter.wallpaper_engine.compose_we_auto.compose_scene",
+        fake_compose_scene,
+    )
+    monkeypatch.setattr(
+        "wallpaper_exporter.wallpaper_engine.compose_we_auto.render_scene",
         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("render called")),
     )
 
@@ -137,7 +140,10 @@ def test_compose_auto_calls_renderer_for_puppet_scene(tmp_path, monkeypatch):
         calls.append((input_path, output_path, kwargs))
         return {"output": str(output_path), "captured_size": (100, 50)}
 
-    monkeypatch.setattr("compose_we_auto.render_scene", fake_render_scene)
+    monkeypatch.setattr(
+        "wallpaper_exporter.wallpaper_engine.compose_we_auto.render_scene",
+        fake_render_scene,
+    )
 
     result = compose_auto(
         tmp_path,

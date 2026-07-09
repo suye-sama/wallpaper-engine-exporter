@@ -119,11 +119,11 @@ Decision order:
 6. If the user accepts capture, create `render.png`.
 7. Always copy the preview image when available and write `info.json`.
 
-The existing scripts should be reused instead of reimplementing their behavior:
+The existing Wallpaper Engine helper modules should be reused instead of reimplementing their behavior:
 
-- `compose_we_static.py`
-- `compose_we_auto.py`
-- `render_we_scene.py`
+- `wallpaper_exporter.wallpaper_engine.compose_we_static`
+- `wallpaper_exporter.wallpaper_engine.compose_we_auto`
+- `wallpaper_exporter.wallpaper_engine.render_we_scene`
 
 ## Output Files
 

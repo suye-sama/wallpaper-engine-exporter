@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Place script in `D:\code_Date\codex_projects\explore\compose_we_static.py`.
+- Place the module at `D:\code_Date\codex_projects\explore\wallpaper_exporter\wallpaper_engine\compose_we_static.py`.
 - Do not modify the source RePKG folder except when the user chooses an output path inside it.
 - Support static image layers only; print skipped dynamic/non-image layers.
 - Apply `effects/opacity/effect.json` masks by multiplying layer alpha by the mask red/luminance channel.
@@ -27,16 +27,16 @@
 - Produces: a regression test proving a 50% mask halves alpha.
 
 - [ ] Write test importing `apply_opacity_mask`.
-- [ ] Run `python -m pytest tests/test_compose_we_static.py -q` and verify it fails because `compose_we_static` does not exist.
+- [ ] Run `python -m pytest tests/test_compose_we_static.py -q` and verify it fails because `wallpaper_exporter.wallpaper_engine.compose_we_static` does not exist.
 
 ### Task 2: CLI Script
 
 **Files:**
-- Create: `D:\code_Date\codex_projects\explore\compose_we_static.py`
+- Create: `D:\code_Date\codex_projects\explore\wallpaper_exporter\wallpaper_engine\compose_we_static.py`
 
 **Interfaces:**
 - Produces: `compose_scene(input_dir: Path, output_path: Path, *, draw_hidden: bool = False) -> dict`
-- Produces: CLI `python compose_we_static.py INPUT_DIR -o OUTPUT.png`
+- Produces: CLI `python -m wallpaper_exporter.wallpaper_engine.compose_we_static INPUT_DIR -o OUTPUT.png`
 
 - [ ] Implement scene parsing, static layer lookup, WE coordinate conversion, alpha handling, opacity mask handling, and CLI summary printing.
 - [ ] Run the unit test and verify it passes.

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from render_we_scene import (
+from wallpaper_exporter.wallpaper_engine.render_we_scene import (
     build_close_wallpaper_command,
     build_open_wallpaper_command,
     build_parser,
@@ -105,7 +105,10 @@ def test_launch_wallpaper_window_uses_non_blocking_popen(monkeypatch):
         calls.append(command)
         return DummyProcess()
 
-    monkeypatch.setattr("render_we_scene.subprocess.Popen", fake_popen)
+    monkeypatch.setattr(
+        "wallpaper_exporter.wallpaper_engine.render_we_scene.subprocess.Popen",
+        fake_popen,
+    )
 
     process = launch_wallpaper_window(["wallpaper64.exe", "-control", "openWallpaper"])
 

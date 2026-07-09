@@ -4,7 +4,7 @@
 
 **Goal:** Build a PySide6 development desktop app that scans the local Wallpaper Engine Workshop library and exports direct, statically composed, or user-approved rendered images.
 
-**Architecture:** Create a small `wallpaper_exporter` package for testable settings, indexing, path, and export decisions. Keep PySide6 code in a focused UI module that calls the service layer from worker threads and reuses the existing composer/render scripts.
+**Architecture:** Create a small `wallpaper_exporter` package for testable settings, indexing, path, and export decisions. Keep PySide6 code in a focused UI module that calls the service layer from worker threads and reuses the packaged Wallpaper Engine composer/render modules.
 
 **Tech Stack:** Python 3.10, PySide6, Pillow, pytest, RePKG.exe, Wallpaper Engine.
 
@@ -17,7 +17,7 @@
 - Default Wallpaper Engine executable is `D:\GAME\steam\steamapps\common\wallpaper_engine\wallpaper64.exe`.
 - Export to `<configured export root>\导出原图\<safe wallpaper title>\`.
 - Do not use Wallpaper Engine render capture without asking the user first.
-- Reuse `compose_we_static.py`, `compose_we_auto.py`, and `render_we_scene.py`; do not duplicate their core algorithms.
+- Reuse the modules under `wallpaper_exporter/wallpaper_engine/`; do not duplicate their core algorithms.
 
 ---
 
