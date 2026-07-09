@@ -69,7 +69,7 @@ wallpaper64.exe:
 D:\GAME\steam\steamapps\common\wallpaper_engine\wallpaper64.exe
 ```
 
-设置会保存到本地 `wallpaper_exporter_settings.json`，这个文件不会提交到 git。
+开发版设置会保存到项目根目录的 `wallpaper_exporter_settings.json`，这个文件不会提交到 git。打包后的 exe 会把设置保存到 exe 同目录，方便作为便携程序移动。
 
 ## 导出图片
 
@@ -150,13 +150,19 @@ cd D:\code_Date\codex_projects\explore
 powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1
 ```
 
-如果想打成单文件 exe：
+如果想打成便携单文件 exe：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1 -OneFile
 ```
 
-打包脚本会安装 `requirements.txt` 和 `requirements-build.txt` 里的依赖，并把 `tools\RePKG\RePKG.exe` 一起放进程序包。生成的 `build/`、`dist/` 和 `.spec` 文件不会提交到 git。
+输出到：
+
+```text
+dist\WallpaperExporter.exe
+```
+
+打包脚本会安装 `requirements.txt` 和 `requirements-build.txt` 里的依赖，并把 `tools\RePKG\RePKG.exe` 一起放进程序包。便携单文件版可以直接移动到别的目录运行，设置文件会写在 exe 旁边。生成的 `build/`、`dist/` 和 `.spec` 文件不会提交到 git。
 
 ## 当前限制
 

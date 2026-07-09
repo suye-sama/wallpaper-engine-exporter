@@ -6,11 +6,25 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+
+SETTINGS_FILENAME = "wallpaper_exporter_settings.json"
+
+
 def runtime_root() -> Path:
     meipass = getattr(sys, "_MEIPASS", None)
     if getattr(sys, "frozen", False) and meipass:
         return Path(meipass)
     return Path(__file__).resolve().parents[1]
+
+
+def settings_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[1]
+
+
+def default_settings_path() -> Path:
+    return settings_root() / SETTINGS_FILENAME
 
 
 PROJECT_ROOT = runtime_root()
@@ -20,7 +34,7 @@ DEFAULT_WALLPAPER_EXE = Path(
     r"D:\GAME\steam\steamapps\common\wallpaper_engine\wallpaper64.exe"
 )
 DEFAULT_EXPORT_ROOT = Path.home() / "Pictures" / "Wallpaper Engine Exports"
-DEFAULT_SETTINGS_PATH = PROJECT_ROOT / "wallpaper_exporter_settings.json"
+DEFAULT_SETTINGS_PATH = default_settings_path()
 
 
 @dataclass(frozen=True)
@@ -39,7 +53,7 @@ def _coerce_settings(payload: dict[str, Any]) -> AppSettings:
 
 
 def load_settings(path: Path | None = None) -> AppSettings:
-    settings_path = Path(path) if path is not None else DEFAULT_SETTINGS_PATH
+    settings_path = Path(path) if path is not None else default_settings_path()
     if not settings_path.exists():
         return AppSettings()
 
@@ -51,7 +65,7 @@ def load_settings(path: Path | None = None) -> AppSettings:
 
 
 def save_settings(settings: AppSettings, path: Path | None = None) -> None:
-    settings_path = Path(path) if path is not None else DEFAULT_SETTINGS_PATH
+    settings_path = Path(path) if path is not None else default_settings_path()
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {key: str(value) for key, value in asdict(settings).items()}
     settings_path.write_text(

@@ -13,6 +13,27 @@ def test_runtime_root_uses_pyinstaller_meipass(monkeypatch, tmp_path):
     assert settings.runtime_root() == tmp_path
 
 
+def test_settings_root_uses_executable_directory_when_frozen(monkeypatch, tmp_path):
+    exe = tmp_path / "WallpaperExporter.exe"
+    exe.write_bytes(b"")
+    monkeypatch.setattr(settings.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(settings.sys, "executable", str(exe), raising=False)
+
+    assert settings.settings_root() == tmp_path
+
+
+def test_default_settings_path_uses_settings_root_when_frozen(monkeypatch, tmp_path):
+    exe = tmp_path / "WallpaperExporter.exe"
+    exe.write_bytes(b"")
+    monkeypatch.setattr(settings.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(settings.sys, "executable", str(exe), raising=False)
+
+    assert (
+        settings.default_settings_path()
+        == tmp_path / "wallpaper_exporter_settings.json"
+    )
+
+
 def test_windows_build_script_bundles_repkg_and_entrypoint():
     script = ROOT / "scripts" / "build_windows.ps1"
 
