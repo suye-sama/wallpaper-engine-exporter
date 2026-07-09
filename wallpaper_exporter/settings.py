@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+def runtime_root() -> Path:
+    meipass = getattr(sys, "_MEIPASS", None)
+    if getattr(sys, "frozen", False) and meipass:
+        return Path(meipass)
+    return Path(__file__).resolve().parents[1]
+
+
+PROJECT_ROOT = runtime_root()
 DEFAULT_WORKSHOP_DIR = Path(r"D:\GAME\steam\steamapps\workshop\content\431960")
 DEFAULT_REPKG_PATH = PROJECT_ROOT / "tools" / "RePKG" / "RePKG.exe"
 DEFAULT_WALLPAPER_EXE = Path(

@@ -135,8 +135,31 @@ cd D:\code_Date\codex_projects\explore
 .\.venv\Scripts\python.exe -m pytest
 ```
 
+## 打包 EXE
+
+默认打包成文件夹版，输出到：
+
+```text
+dist\WallpaperExporter\WallpaperExporter.exe
+```
+
+运行：
+
+```powershell
+cd D:\code_Date\codex_projects\explore
+powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1
+```
+
+如果想打成单文件 exe：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1 -OneFile
+```
+
+打包脚本会安装 `requirements.txt` 和 `requirements-build.txt` 里的依赖，并把 `tools\RePKG\RePKG.exe` 一起放进程序包。生成的 `build/`、`dist/` 和 `.spec` 文件不会提交到 git。
+
 ## 当前限制
 
-- 这是开发版，还没有打包成双击运行的 `.exe`。
+- 可以打包成 exe，但还没有安装器和自动更新。
 - 扫描和导出当前在窗口进程里执行，处理特别大的壁纸时界面可能短暂等待。
 - 动态壁纸不存在真正意义上的“原始静态图”时，只能通过 Wallpaper Engine 抓取当前画面。
