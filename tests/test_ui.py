@@ -36,3 +36,22 @@ def test_status_for_video_entry_is_direct_video(tmp_path):
     )
 
     assert _status_for_entry(entry) == "直接视频"
+
+
+def test_missing_workshop_shows_settings_hint(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    settings = AppSettings(
+        workshop_dir=tmp_path / "missing-workshop",
+        export_root=tmp_path / "exports",
+        repkg_path=tmp_path / "RePKG.exe",
+        wallpaper_exe=tmp_path / "wallpaper64.exe",
+    )
+    window = MainWindow(settings=settings, auto_scan=False)
+
+    window.scan_now()
+
+    message = window.statusBar().currentMessage()
+    assert "Workshop" in message
+    assert "设置" in message
+    window.close()
+    app.processEvents()

@@ -3,6 +3,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from wallpaper_exporter.discovery import DetectedWallpaperPaths
 import wallpaper_exporter.wallpaper_engine.render_we_scene as render_module
 from wallpaper_exporter.wallpaper_engine.render_we_scene import (
     build_close_wallpaper_command,
@@ -14,6 +15,7 @@ from wallpaper_exporter.wallpaper_engine.render_we_scene import (
     image_is_nearly_black,
     launch_wallpaper_window,
     render_scene,
+    resolve_wallpaper_exe,
     stage_wallpaper_file_for_engine,
 )
 
@@ -234,3 +236,17 @@ def test_stage_wallpaper_file_for_engine_copies_non_ascii_scene(tmp_path):
 def test_image_is_nearly_black_detects_empty_capture():
     assert image_is_nearly_black(Image.new("RGB", (2, 2), (0, 0, 0)))
     assert not image_is_nearly_black(Image.new("RGB", (2, 2), (0, 40, 0)))
+
+
+def test_resolve_wallpaper_exe_uses_shared_discovery(monkeypatch, tmp_path):
+    discovered = tmp_path / "wallpaper64.exe"
+    discovered.write_bytes(b"exe")
+    monkeypatch.delenv("WALLPAPER_ENGINE_EXE", raising=False)
+    monkeypatch.setattr(
+        render_module,
+        "discover_wallpaper_paths",
+        lambda: DetectedWallpaperPaths(None, discovered),
+    )
+    monkeypatch.setattr(render_module.shutil, "which", lambda name: None)
+
+    assert resolve_wallpaper_exe() == discovered
