@@ -4,21 +4,19 @@ import os
 import subprocess
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QSizePolicy,
-    QSplitter,
+    QScrollArea,
     QStatusBar,
     QVBoxLayout,
     QWidget,
@@ -34,6 +32,72 @@ from .indexer import (
 from .settings import AppSettings, load_settings
 
 
+GRID_CARD_WIDTH = 180
+GRID_CARD_HEIGHT = 218
+GRID_GAP = 10
+MAX_GRID_COLUMNS = 6
+PREVIEW_SIZE = QSize(164, 92)
+
+
+def grid_column_count(available_width: int) -> int:
+    slots = max(
+        1,
+        (max(0, available_width) + GRID_GAP)
+        // (GRID_CARD_WIDTH + GRID_GAP),
+    )
+    return min(MAX_GRID_COLUMNS, slots)
+
+
+class WallpaperCard(QFrame):
+    export_requested = Signal(object)
+
+    def __init__(
+        self,
+        entry: WallpaperEntry,
+        status: str,
+        preview: QPixmap | None,
+        preview_message: str,
+    ) -> None:
+        super().__init__()
+        self.entry = entry
+        self.setObjectName("wallpaperCard")
+        self.setFixedSize(GRID_CARD_WIDTH, GRID_CARD_HEIGHT)
+        self.setToolTip(f"{entry.title}\nID: {entry.workshop_id}\n{entry.root}")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
+
+        self.preview_label = QLabel(preview_message)
+        self.preview_label.setObjectName("cardPreview")
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_label.setFixedSize(PREVIEW_SIZE)
+        if preview is not None:
+            self.preview_label.setText("")
+            self.preview_label.setPixmap(preview)
+        layout.addWidget(self.preview_label)
+
+        self.title_label = QLabel(entry.title)
+        self.title_label.setObjectName("cardTitle")
+        self.title_label.setWordWrap(True)
+        self.title_label.setFixedHeight(36)
+        self.title_label.setToolTip(entry.title)
+        layout.addWidget(self.title_label)
+
+        self.status_label = QLabel(status)
+        self.status_label.setObjectName("cardStatus")
+        self.status_label.setFixedHeight(20)
+        layout.addWidget(self.status_label)
+
+        self.export_button = QPushButton("导出")
+        self.export_button.setObjectName("cardExport")
+        self.export_button.setEnabled(not bool(entry.error))
+        self.export_button.clicked.connect(
+            lambda: self.export_requested.emit(self.entry)
+        )
+        layout.addWidget(self.export_button)
+
+
 class MainWindow(QMainWindow):
     def __init__(
         self,
@@ -47,6 +111,9 @@ class MainWindow(QMainWindow):
         self.entries: list[WallpaperEntry] = []
         self.filtered_entries: list[WallpaperEntry] = []
         self.last_output_dir: Path | None = None
+        self.cards: list[WallpaperCard] = []
+        self._grid_columns = 0
+        self._preview_cache: dict[tuple[Path, int, int], QPixmap | None] = {}
 
         self.setWindowTitle("Wallpaper 原图导出")
         self.resize(1180, 760)
@@ -69,64 +136,34 @@ class MainWindow(QMainWindow):
         self.search_edit.textChanged.connect(self._apply_filter)
         toolbar.addWidget(self.search_edit, 1)
 
+        self.count_label = QLabel("0 项")
+        self.count_label.setObjectName("muted")
+        toolbar.addWidget(self.count_label)
+
         rescan_button = QPushButton("重新扫描")
         rescan_button.clicked.connect(self.scan_now)
         toolbar.addWidget(rescan_button)
-        outer.addLayout(toolbar)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        outer.addWidget(splitter, 1)
-
-        left_panel = QFrame()
-        left_panel.setObjectName("panel")
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(10, 10, 10, 10)
-        self.count_label = QLabel("0 项")
-        self.count_label.setObjectName("muted")
-        self.list_widget = QListWidget()
-        self.list_widget.currentRowChanged.connect(self._selection_changed)
-        left_layout.addWidget(self.count_label)
-        left_layout.addWidget(self.list_widget, 1)
-        splitter.addWidget(left_panel)
-
-        detail_panel = QFrame()
-        detail_panel.setObjectName("panel")
-        detail_layout = QVBoxLayout(detail_panel)
-        detail_layout.setContentsMargins(14, 14, 14, 14)
-        detail_layout.setSpacing(10)
-
-        self.preview_label = QLabel("没有预览")
-        self.preview_label.setObjectName("preview")
-        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_label.setMinimumSize(560, 315)
-        self.preview_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        detail_layout.addWidget(self.preview_label, 1)
-
-        self.title_label = QLabel("未选择")
-        self.title_label.setObjectName("title")
-        self.title_label.setWordWrap(True)
-        self.status_strip = QLabel("等待选择")
-        self.status_strip.setObjectName("statusStrip")
-        self.detail_label = QLabel("")
-        self.detail_label.setObjectName("detail")
-        self.detail_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.detail_label.setWordWrap(True)
-        detail_layout.addWidget(self.title_label)
-        detail_layout.addWidget(self.status_strip)
-        detail_layout.addWidget(self.detail_label)
-
-        actions = QHBoxLayout()
-        self.export_button = QPushButton("导出选中")
-        self.export_button.clicked.connect(self.export_selected)
         self.open_button = QPushButton("打开输出")
         self.open_button.clicked.connect(self.open_last_output)
         self.open_button.setEnabled(False)
-        actions.addStretch(1)
-        actions.addWidget(self.open_button)
-        actions.addWidget(self.export_button)
-        detail_layout.addLayout(actions)
-        splitter.addWidget(detail_panel)
-        splitter.setSizes([340, 820])
+        toolbar.addWidget(self.open_button)
+        outer.addLayout(toolbar)
+
+        self.gallery_scroll = QScrollArea()
+        self.gallery_scroll.setObjectName("galleryScroll")
+        self.gallery_scroll.setWidgetResizable(True)
+        self.gallery = QWidget()
+        self.gallery.setObjectName("gallery")
+        self.gallery_layout = QGridLayout(self.gallery)
+        self.gallery_layout.setContentsMargins(0, 0, 0, 0)
+        self.gallery_layout.setHorizontalSpacing(GRID_GAP)
+        self.gallery_layout.setVerticalSpacing(GRID_GAP)
+        self.gallery_layout.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+        )
+        self.gallery_scroll.setWidget(self.gallery)
+        outer.addWidget(self.gallery_scroll, 1)
 
         self.setStatusBar(QStatusBar())
 
@@ -138,25 +175,6 @@ class MainWindow(QMainWindow):
                 color: #1f2937;
                 font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
                 font-size: 13px;
-            }
-            QFrame#panel {
-                background: #ffffff;
-                border: 1px solid #dfe3ea;
-                border-radius: 8px;
-            }
-            QListWidget {
-                background: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 6px;
-                outline: none;
-            }
-            QListWidget::item {
-                min-height: 34px;
-                padding: 6px 8px;
-            }
-            QListWidget::item:selected {
-                background: #dbeafe;
-                color: #1f2937;
             }
             QLineEdit {
                 background: #ffffff;
@@ -180,24 +198,41 @@ class MainWindow(QMainWindow):
                 color: #9ca3af;
                 background: #f3f4f6;
             }
-            QLabel#preview {
+            QScrollArea#galleryScroll {
+                border: none;
+                background: transparent;
+            }
+            QWidget#gallery {
+                background: transparent;
+            }
+            QFrame#wallpaperCard {
+                background: #ffffff;
+                border: 1px solid #dfe3ea;
+                border-radius: 6px;
+            }
+            QFrame#wallpaperCard:hover {
+                border-color: #2f6fed;
+            }
+            QLabel#cardPreview {
                 background: #111827;
                 color: #e5e7eb;
-                border-radius: 8px;
+                border-radius: 4px;
             }
-            QLabel#title {
-                font-size: 20px;
-                font-weight: 650;
+            QLabel#cardTitle {
+                color: #1f2937;
+                font-weight: 600;
             }
-            QLabel#muted, QLabel#detail {
-                color: #6b7280;
+            QLabel#cardStatus, QLabel#muted {
+                color: #64748b;
             }
-            QLabel#statusStrip {
-                background: #eef4ff;
-                color: #1d4ed8;
-                border: 1px solid #bfdbfe;
-                border-radius: 6px;
-                padding: 7px 9px;
+            QPushButton#cardExport {
+                background: #2f6fed;
+                border-color: #2f6fed;
+                color: #ffffff;
+            }
+            QPushButton#cardExport:hover {
+                background: #245bd0;
+                border-color: #245bd0;
             }
             """
         )
@@ -236,82 +271,67 @@ class MainWindow(QMainWindow):
             or text in entry.title.lower()
             or text in entry.workshop_id.lower()
         ]
-        self.list_widget.blockSignals(True)
-        self.list_widget.clear()
-        for entry in self.filtered_entries:
-            item = QListWidgetItem(f"{entry.title}\n{entry.workshop_id}")
-            item.setToolTip(str(entry.root))
-            self.list_widget.addItem(item)
-        self.list_widget.blockSignals(False)
         self.count_label.setText(f"{len(self.filtered_entries)} 项")
-        if self.filtered_entries:
-            self.list_widget.setCurrentRow(0)
-            self._show_entry(self.filtered_entries[0])
-        else:
-            self._clear_selection()
+        self._rebuild_grid()
 
-    def _selection_changed(self, row: int) -> None:
-        if row < 0 or row >= len(self.filtered_entries):
-            self._clear_selection()
-            return
-        self._show_entry(self.filtered_entries[row])
+    def _clear_grid(self) -> None:
+        while self.gallery_layout.count():
+            item = self.gallery_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        self.cards = []
 
-    def _show_entry(self, entry: WallpaperEntry) -> None:
-        self.title_label.setText(entry.title)
-        self.status_strip.setText(_status_for_entry(entry))
-        details = [
-            f"ID: {entry.workshop_id}",
-            f"类型: {entry.project_type or 'unknown'}",
-            f"路径: {entry.root}",
-        ]
-        if entry.error:
-            details.append(f"错误: {entry.error}")
-        self.detail_label.setText("\n".join(details))
-        self._load_preview(entry.preview_path)
-        self.export_button.setEnabled(not bool(entry.error))
+    def _preview_for_entry(self, entry: WallpaperEntry) -> tuple[QPixmap | None, str]:
+        path = entry.preview_path
+        if path is None or not path.is_file():
+            return None, "没有预览"
 
-    def _clear_selection(self) -> None:
-        self.title_label.setText("未选择")
-        self.status_strip.setText("等待选择")
-        self.detail_label.setText("")
-        self.preview_label.setText("没有预览")
-        self.preview_label.setPixmap(QPixmap())
-        self.export_button.setEnabled(False)
-
-    def _load_preview(self, path: Path | None) -> None:
-        self.preview_label.setPixmap(QPixmap())
-        if not path or not path.exists():
-            self.preview_label.setText("没有预览")
-            return
-        pixmap = QPixmap(str(path))
-        if pixmap.isNull():
-            self.preview_label.setText("预览不可读")
-            return
-        self.preview_label.setText("")
-        self.preview_label.setPixmap(
-            pixmap.scaled(
-                self.preview_label.size(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
+        key = (path, PREVIEW_SIZE.width(), PREVIEW_SIZE.height())
+        if key not in self._preview_cache:
+            source = QPixmap(str(path))
+            self._preview_cache[key] = (
+                None
+                if source.isNull()
+                else source.scaled(
+                    PREVIEW_SIZE,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
             )
-        )
+
+        preview = self._preview_cache[key]
+        return (preview, "") if preview is not None else (None, "预览不可读")
+
+    def _rebuild_grid(self) -> None:
+        columns = grid_column_count(self.gallery_scroll.viewport().width())
+        self._grid_columns = columns
+        self._clear_grid()
+        for index, entry in enumerate(self.filtered_entries):
+            preview, preview_message = self._preview_for_entry(entry)
+            card = WallpaperCard(
+                entry,
+                _status_for_entry(entry),
+                preview,
+                preview_message,
+            )
+            card.export_requested.connect(self.export_entry)
+            self.cards.append(card)
+            self.gallery_layout.addWidget(card, index // columns, index % columns)
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._rebuild_grid()
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
-        row = self.list_widget.currentRow()
-        if 0 <= row < len(self.filtered_entries):
-            self._load_preview(self.filtered_entries[row].preview_path)
-
-    def selected_entry(self) -> WallpaperEntry | None:
-        row = self.list_widget.currentRow()
-        if row < 0 or row >= len(self.filtered_entries):
-            return None
-        return self.filtered_entries[row]
-
-    def export_selected(self) -> None:
-        entry = self.selected_entry()
-        if entry is None:
+        if not hasattr(self, "gallery_scroll"):
             return
+        columns = grid_column_count(self.gallery_scroll.viewport().width())
+        if columns != self._grid_columns:
+            self._rebuild_grid()
+
+    def export_entry(self, entry: WallpaperEntry) -> None:
         try:
             result = self._run_export(entry, ExportOptions(allow_render_capture=False))
         except ExportNeedsRenderCapture as exc:
@@ -347,6 +367,7 @@ class MainWindow(QMainWindow):
         if not self.last_output_dir:
             return
         os.startfile(self.last_output_dir)
+
 
 def _status_for_entry(entry: WallpaperEntry) -> str:
     if entry.error:
