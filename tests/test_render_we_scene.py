@@ -250,3 +250,19 @@ def test_resolve_wallpaper_exe_uses_shared_discovery(monkeypatch, tmp_path):
     monkeypatch.setattr(render_module.shutil, "which", lambda name: None)
 
     assert resolve_wallpaper_exe() == discovered
+
+
+def test_resolve_wallpaper_exe_ignores_directory_candidates(monkeypatch, tmp_path):
+    invalid_explicit_path = tmp_path / "wallpaper64.exe"
+    invalid_explicit_path.mkdir()
+    discovered = tmp_path / "detected-wallpaper64.exe"
+    discovered.write_bytes(b"exe")
+    monkeypatch.delenv("WALLPAPER_ENGINE_EXE", raising=False)
+    monkeypatch.setattr(
+        render_module,
+        "discover_wallpaper_paths",
+        lambda: DetectedWallpaperPaths(None, discovered),
+    )
+    monkeypatch.setattr(render_module.shutil, "which", lambda name: None)
+
+    assert resolve_wallpaper_exe(invalid_explicit_path) == discovered

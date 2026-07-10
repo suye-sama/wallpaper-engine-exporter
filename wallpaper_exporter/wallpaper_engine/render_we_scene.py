@@ -202,7 +202,7 @@ def resolve_wallpaper_exe(explicit_path: Path | None = None) -> Path:
             candidates.append(Path(found))
 
     for candidate in candidates:
-        if candidate.exists():
+        if candidate.is_file():
             return candidate
 
     raise FileNotFoundError(
