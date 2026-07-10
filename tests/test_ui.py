@@ -8,7 +8,14 @@ from PySide6.QtWidgets import QApplication
 from wallpaper_exporter import ui as ui_module
 from wallpaper_exporter.indexer import WallpaperEntry
 from wallpaper_exporter.settings import AppSettings
-from wallpaper_exporter.ui import MainWindow, _status_for_entry
+from wallpaper_exporter.ui import MainWindow, _status_for_entry, grid_column_count
+
+
+def test_grid_column_count_keeps_six_cards_at_normal_width_and_five_when_narrower():
+    assert grid_column_count(1130) == 6
+    assert grid_column_count(1129) == 5
+    assert grid_column_count(1000) == 5
+    assert grid_column_count(179) == 1
 
 
 def test_main_window_can_be_created_without_scanning(tmp_path):

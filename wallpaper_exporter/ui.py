@@ -4,7 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -32,6 +32,22 @@ from .indexer import (
     scan_workshop,
 )
 from .settings import AppSettings, load_settings
+
+
+GRID_CARD_WIDTH = 180
+GRID_CARD_HEIGHT = 218
+GRID_GAP = 10
+MAX_GRID_COLUMNS = 6
+PREVIEW_SIZE = QSize(164, 92)
+
+
+def grid_column_count(available_width: int) -> int:
+    slots = max(
+        1,
+        (max(0, available_width) + GRID_GAP)
+        // (GRID_CARD_WIDTH + GRID_GAP),
+    )
+    return min(MAX_GRID_COLUMNS, slots)
 
 
 class MainWindow(QMainWindow):
