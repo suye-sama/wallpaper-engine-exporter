@@ -129,22 +129,10 @@ cd D:\code_Date\codex_projects\explore
 
 ## 打包 EXE
 
-默认打包成文件夹版，输出到：
-
-```text
-dist\WallpaperExporter\WallpaperExporter.exe
-```
-
-运行：
+打包为内置 RePKG 的便携单文件 exe：
 
 ```powershell
 cd D:\code_Date\codex_projects\explore
-powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1
-```
-
-如果想打成便携单文件 exe：
-
-```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1 -OneFile
 ```
 
