@@ -53,6 +53,24 @@ def test_parse_libraryfolders_ignores_malformed_lines_and_duplicates():
     assert parse_libraryfolders(text) == [Path(r"D:\SteamLibrary")]
 
 
+def test_parse_libraryfolders_ignores_app_build_ids_inside_library_record():
+    text = r'''
+    "libraryfolders"
+    {
+        "0"
+        {
+            "path" "D:\\GAME\\steam"
+            "apps"
+            {
+                "431960" "826275581"
+            }
+        }
+    }
+    '''
+
+    assert parse_libraryfolders(text) == [Path(r"D:\GAME\steam")]
+
+
 def test_steam_root_candidates_keep_registry_order_before_known_roots(tmp_path):
     registry = tmp_path / "registry-steam"
     known = tmp_path / "known-steam"

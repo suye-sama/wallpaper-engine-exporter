@@ -11,14 +11,7 @@ KNOWN_STEAM_ROOTS = (
     Path(r"C:\Program Files\Steam"),
     Path(r"D:\GAME\steam"),
 )
-_STRUCTURED_PATH = re.compile(
-    r'"[0-9]+"\s*\{[^{}]*?"path"\s*"((?:\\.|[^"])*)"',
-    re.DOTALL | re.IGNORECASE,
-)
-_LEGACY_PATH = re.compile(
-    r'^\s*"[0-9]+"\s*"((?:\\.|[^"])*)"\s*$',
-    re.MULTILINE,
-)
+_VDF_TOKEN = re.compile(r'"((?:\\.|[^"\\])*)"|([{}])')
 
 
 def unique_paths(paths: Iterable[Path]) -> list[Path]:
@@ -38,11 +31,54 @@ def _unescape_vdf_path(value: str) -> Path:
 
 
 def parse_libraryfolders(text: str) -> list[Path]:
-    structured = [
-        _unescape_vdf_path(match.group(1)) for match in _STRUCTURED_PATH.finditer(text)
+    tokens = [
+        quoted or brace
+        for quoted, brace in _VDF_TOKEN.findall(text)
     ]
-    legacy = [_unescape_vdf_path(match.group(1)) for match in _LEGACY_PATH.finditer(text)]
-    return unique_paths([*structured, *legacy])
+    try:
+        root_start = tokens.index("{") + 1
+    except ValueError:
+        return []
+
+    root, _position = _parse_vdf_object(tokens, root_start)
+    libraries: list[Path] = []
+    for key, value in root:
+        if not key.isdigit():
+            continue
+        if isinstance(value, str):
+            libraries.append(_unescape_vdf_path(value))
+            continue
+        for field, field_value in value:
+            if field.casefold() == "path" and isinstance(field_value, str):
+                libraries.append(_unescape_vdf_path(field_value))
+                break
+    return unique_paths(libraries)
+
+
+def _parse_vdf_object(
+    tokens: Sequence[str], position: int
+) -> tuple[list[tuple[str, str | list]], int]:
+    result: list[tuple[str, str | list]] = []
+    while position < len(tokens):
+        token = tokens[position]
+        if token == "}":
+            return result, position + 1
+        if token == "{":
+            position += 1
+            continue
+
+        key = token
+        position += 1
+        if position >= len(tokens):
+            break
+        if tokens[position] == "{":
+            value, position = _parse_vdf_object(tokens, position + 1)
+            result.append((key, value))
+            continue
+        if tokens[position] != "}":
+            result.append((key, tokens[position]))
+            position += 1
+    return result, position
 
 
 @dataclass(frozen=True)

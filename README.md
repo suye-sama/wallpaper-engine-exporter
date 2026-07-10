@@ -47,15 +47,18 @@ cd D:\code_Date\codex_projects\explore
 
 ## 自动识别路径
 
-打开程序后，会从 Steam 注册表、Steam 库配置和常见 Steam 安装位置查找
-Wallpaper Engine 的 Workshop 目录与 `wallpaper64.exe`。`RePKG.exe` 已随程序
-内置，导出根目录默认是 `图片\Wallpaper Engine Exports`。
+每次打开程序，以及每次点击 `重新扫描`，都会从 Steam 注册表、Steam 库配置和
+常见 Steam 安装位置重新查找 Wallpaper Engine 的 Workshop 目录与
+`wallpaper64.exe`。
 
-已保存且确实存在的手动路径会始终保留。只有旧路径不存在，或文件与目录类型
-不正确时，程序才会自动修复配置。自动识别失败时，点击右上方的 `设置` 手动选择
-路径即可。
+`RePKG.exe` 已内置在程序包中，不需要选择路径。导出根目录固定为：
 
-开发版设置会保存到项目根目录的 `wallpaper_exporter_settings.json`，这个文件不会提交到 git。打包后的 exe 会把设置保存到 exe 同目录，方便作为便携程序移动。
+```text
+图片\Wallpaper Engine Exports
+```
+
+首次导出时会自动创建该目录。程序不保存 Workshop、Wallpaper Engine、RePKG 或
+导出目录路径；旧版本遗留的 `wallpaper_exporter_settings.json` 会在启动时清除。
 
 ## 导出图片
 
@@ -67,7 +70,7 @@ Wallpaper Engine 的 Workshop 目录与 `wallpaper64.exe`。`RePKG.exe` 已随�
 导出结果会放到：
 
 ```text
-<你选择的导出根目录>\导出原图\<壁纸标题>\
+图片\Wallpaper Engine Exports\导出原图\<壁纸标题>\
 ```
 
 可能生成的文件：
@@ -148,7 +151,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1 -OneFile
 dist\WallpaperExporter.exe
 ```
 
-打包脚本会安装 `requirements.txt` 和 `requirements-build.txt` 里的依赖，并把 `tools\RePKG\RePKG.exe` 一起放进程序包。便携单文件版可以直接移动到别的目录运行，设置文件会写在 exe 旁边。生成的 `build/`、`dist/` 和 `.spec` 文件不会提交到 git。
+打包脚本会安装 `requirements.txt` 和 `requirements-build.txt` 里的依赖，并把 `tools\RePKG\RePKG.exe` 一起放进程序包。便携单文件版可以直接移动到别的目录运行，不会在 exe 旁边写入设置文件。生成的 `build/`、`dist/` 和 `.spec` 文件不会提交到 git。
 
 ## 当前限制
 

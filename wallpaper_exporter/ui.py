@@ -8,9 +8,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QApplication,
-    QDialog,
-    QFileDialog,
-    QFormLayout,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -34,55 +31,7 @@ from .indexer import (
     WallpaperEntry,
     scan_workshop,
 )
-from .settings import AppSettings, load_settings, save_settings
-
-
-class SettingsDialog(QDialog):
-    def __init__(self, settings: AppSettings, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("设置")
-        self.workshop_edit = QLineEdit(str(settings.workshop_dir))
-        self.export_edit = QLineEdit(str(settings.export_root))
-        self.repkg_edit = QLineEdit(str(settings.repkg_path))
-        self.wallpaper_edit = QLineEdit(str(settings.wallpaper_exe))
-
-        layout = QVBoxLayout(self)
-        form = QFormLayout()
-        form.addRow("Workshop", _path_row(self.workshop_edit, self._choose_workshop))
-        form.addRow("导出根目录", _path_row(self.export_edit, self._choose_export_root))
-        form.addRow("RePKG.exe", _path_row(self.repkg_edit, self._choose_repkg))
-        form.addRow("wallpaper64.exe", _path_row(self.wallpaper_edit, self._choose_wallpaper))
-        layout.addLayout(form)
-
-        buttons = QHBoxLayout()
-        buttons.addStretch(1)
-        cancel_button = QPushButton("取消")
-        cancel_button.clicked.connect(self.reject)
-        save_button = QPushButton("保存")
-        save_button.clicked.connect(self.accept)
-        buttons.addWidget(cancel_button)
-        buttons.addWidget(save_button)
-        layout.addLayout(buttons)
-
-    def settings(self) -> AppSettings:
-        return AppSettings(
-            workshop_dir=Path(self.workshop_edit.text().strip()),
-            export_root=Path(self.export_edit.text().strip()),
-            repkg_path=Path(self.repkg_edit.text().strip()),
-            wallpaper_exe=Path(self.wallpaper_edit.text().strip()),
-        )
-
-    def _choose_workshop(self) -> None:
-        _choose_dir_into(self, self.workshop_edit)
-
-    def _choose_export_root(self) -> None:
-        _choose_dir_into(self, self.export_edit)
-
-    def _choose_repkg(self) -> None:
-        _choose_file_into(self, self.repkg_edit, "RePKG.exe (*.exe)")
-
-    def _choose_wallpaper(self) -> None:
-        _choose_file_into(self, self.wallpaper_edit, "wallpaper64.exe (*.exe)")
+from .settings import AppSettings, load_settings
 
 
 class MainWindow(QMainWindow):
@@ -93,7 +42,8 @@ class MainWindow(QMainWindow):
         auto_scan: bool = True,
     ) -> None:
         super().__init__()
-        self.settings = settings or load_settings()
+        self.settings = settings
+        self._auto_discover_paths = settings is None
         self.entries: list[WallpaperEntry] = []
         self.filtered_entries: list[WallpaperEntry] = []
         self.last_output_dir: Path | None = None
@@ -121,10 +71,7 @@ class MainWindow(QMainWindow):
 
         rescan_button = QPushButton("重新扫描")
         rescan_button.clicked.connect(self.scan_now)
-        settings_button = QPushButton("设置")
-        settings_button.clicked.connect(self.open_settings)
         toolbar.addWidget(rescan_button)
-        toolbar.addWidget(settings_button)
         outer.addLayout(toolbar)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -256,18 +203,23 @@ class MainWindow(QMainWindow):
         )
 
     def scan_now(self) -> None:
-        if not self.settings.workshop_dir.is_dir():
+        if self._auto_discover_paths:
+            self.settings = load_settings()
+        assert self.settings is not None
+
+        workshop_dir = self.settings.workshop_dir
+        if workshop_dir is None or not workshop_dir.is_dir():
             self.entries = []
             self._apply_filter()
             self.statusBar().showMessage(
-                "找不到 Wallpaper Engine Workshop，请在设置中选择目录。"
+                "找不到 Wallpaper Engine Workshop，已重新自动查找 Steam 库。"
             )
             return
 
         self.statusBar().showMessage("扫描中...")
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            self.entries = scan_workshop(self.settings.workshop_dir)
+            self.entries = scan_workshop(workshop_dir)
             self._apply_filter()
             self.statusBar().showMessage(f"扫描完成：{len(self.entries)} 项", 5000)
         except Exception as exc:
@@ -384,6 +336,7 @@ class MainWindow(QMainWindow):
     def _run_export(
         self, entry: WallpaperEntry, options: ExportOptions
     ):
+        assert self.settings is not None
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             return export_wallpaper(entry, self.settings, options)
@@ -394,15 +347,6 @@ class MainWindow(QMainWindow):
         if not self.last_output_dir:
             return
         os.startfile(self.last_output_dir)
-
-    def open_settings(self) -> None:
-        dialog = SettingsDialog(self.settings, self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        self.settings = dialog.settings()
-        save_settings(self.settings)
-        self.scan_now()
-
 
 def _status_for_entry(entry: WallpaperEntry) -> str:
     if entry.error:
@@ -416,31 +360,6 @@ def _status_for_entry(entry: WallpaperEntry) -> str:
     if entry.has_scene_pkg:
         return "需要 RePKG"
     return "待判断"
-
-
-def _path_row(edit: QLineEdit, callback) -> QWidget:
-    row = QWidget()
-    layout = QHBoxLayout(row)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.addWidget(edit, 1)
-    button = QPushButton("浏览")
-    button.clicked.connect(callback)
-    layout.addWidget(button)
-    return row
-
-
-def _choose_dir_into(parent: QWidget, edit: QLineEdit) -> None:
-    value = QFileDialog.getExistingDirectory(parent, "选择目录", edit.text())
-    if value:
-        edit.setText(value)
-
-
-def _choose_file_into(parent: QWidget, edit: QLineEdit, file_filter: str) -> None:
-    value, _selected_filter = QFileDialog.getOpenFileName(
-        parent, "选择文件", edit.text(), file_filter
-    )
-    if value:
-        edit.setText(value)
 
 
 def run_app() -> int:
