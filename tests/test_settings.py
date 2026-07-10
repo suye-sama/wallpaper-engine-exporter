@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from wallpaper_exporter import settings as settings_module
 from wallpaper_exporter.settings import AppSettings, load_settings, save_settings
 
 
@@ -9,9 +10,7 @@ def test_load_settings_uses_expected_defaults(tmp_path):
     assert settings.workshop_dir == Path(
         r"D:\GAME\steam\steamapps\workshop\content\431960"
     )
-    assert settings.repkg_path == Path(
-        r"D:\code_Date\codex_projects\explore\tools\RePKG\RePKG.exe"
-    )
+    assert settings.repkg_path == settings_module.DEFAULT_REPKG_PATH
     assert settings.wallpaper_exe == Path(
         r"D:\GAME\steam\steamapps\common\wallpaper_engine\wallpaper64.exe"
     )
