@@ -256,6 +256,14 @@ class MainWindow(QMainWindow):
         )
 
     def scan_now(self) -> None:
+        if not self.settings.workshop_dir.is_dir():
+            self.entries = []
+            self._apply_filter()
+            self.statusBar().showMessage(
+                "找不到 Wallpaper Engine Workshop，请在设置中选择目录。"
+            )
+            return
+
         self.statusBar().showMessage("扫描中...")
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:

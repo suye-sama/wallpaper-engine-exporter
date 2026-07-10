@@ -45,29 +45,15 @@ cd D:\code_Date\codex_projects\explore
 .\.venv\Scripts\python.exe -m wallpaper_exporter
 ```
 
-打开后会扫描默认目录：
+## 自动识别路径
 
-```text
-D:\GAME\steam\steamapps\workshop\content\431960
-```
+打开程序后，会从 Steam 注册表、Steam 库配置和常见 Steam 安装位置查找
+Wallpaper Engine 的 Workshop 目录与 `wallpaper64.exe`。`RePKG.exe` 已随程序
+内置，导出根目录默认是 `图片\Wallpaper Engine Exports`。
 
-## 首次配置
-
-点窗口右上方的 `设置`，确认这几个路径：
-
-```text
-Workshop:
-D:\GAME\steam\steamapps\workshop\content\431960
-
-导出根目录:
-你自己选择
-
-RePKG.exe:
-D:\code_Date\codex_projects\explore\tools\RePKG\RePKG.exe
-
-wallpaper64.exe:
-D:\GAME\steam\steamapps\common\wallpaper_engine\wallpaper64.exe
-```
+已保存且确实存在的手动路径会始终保留。只有旧路径不存在，或文件与目录类型
+不正确时，程序才会自动修复配置。自动识别失败时，点击右上方的 `设置` 手动选择
+路径即可。
 
 开发版设置会保存到项目根目录的 `wallpaper_exporter_settings.json`，这个文件不会提交到 git。打包后的 exe 会把设置保存到 exe 同目录，方便作为便携程序移动。
 

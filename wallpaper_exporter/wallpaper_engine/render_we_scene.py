@@ -18,6 +18,8 @@ from ctypes import wintypes
 
 from PIL import Image
 
+from ..discovery import discover_wallpaper_paths
+
 GENERATED_PROJECT_NAME = "_codex_render_project.json"
 PW_RENDERFULLCONTENT = 0x00000002
 _WIN32_DLLS: tuple[Any, Any] | None = None
@@ -190,13 +192,9 @@ def resolve_wallpaper_exe(explicit_path: Path | None = None) -> Path:
     if env_path:
         candidates.append(Path(env_path))
 
-    candidates.extend(
-        [
-            Path(r"D:\GAME\steam\steamapps\common\wallpaper_engine\wallpaper64.exe"),
-            Path(r"C:\Program Files (x86)\Steam\steamapps\common\wallpaper_engine\wallpaper64.exe"),
-            Path(r"C:\Program Files\Steam\steamapps\common\wallpaper_engine\wallpaper64.exe"),
-        ]
-    )
+    detected = discover_wallpaper_paths()
+    if detected.wallpaper_exe is not None:
+        candidates.append(detected.wallpaper_exe)
 
     for name in ("wallpaper64.exe", "wallpaper32.exe"):
         found = shutil.which(name)
@@ -204,7 +202,7 @@ def resolve_wallpaper_exe(explicit_path: Path | None = None) -> Path:
             candidates.append(Path(found))
 
     for candidate in candidates:
-        if candidate.exists():
+        if candidate.is_file():
             return candidate
 
     raise FileNotFoundError(
