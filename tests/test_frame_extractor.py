@@ -1,6 +1,7 @@
 import pytest
 
 from wallpaper_exporter.frame_extractor import (
+    clear_old_frames,
     compute_timestamps,
     frame_filename,
     scaled_size,
@@ -81,3 +82,26 @@ def test_frames_folder_for_sanitizes_title(tmp_path):
 
     assert folder == tmp_path / "视频帧" / "My_Video_ _Cool_"
     assert folder.name != "My/Video: \"Cool\""
+
+
+def test_clear_old_frames_removes_only_frame_pngs(tmp_path):
+    for name in ["frame_001.png", "frame_007.png"]:
+        (tmp_path / name).write_bytes(b"png")
+    (tmp_path / "notes.txt").write_text("keep")
+    (tmp_path / "other.png").write_bytes(b"png")
+    sub = tmp_path / "frame_sub"
+    sub.mkdir()
+
+    removed = clear_old_frames(tmp_path)
+
+    assert removed == 2
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "frame_sub",
+        "notes.txt",
+        "other.png",
+    ]
+
+
+def test_clear_old_frames_handles_empty_or_missing_dir(tmp_path):
+    assert clear_old_frames(tmp_path) == 0
+    assert clear_old_frames(tmp_path / "missing") == 0

@@ -45,6 +45,22 @@ def frame_filename(index: int) -> str:
     return f"frame_{index:03d}.png"
 
 
+def clear_old_frames(output_dir: Path) -> int:
+    """Remove previously extracted ``frame_*.png`` files from ``output_dir``.
+
+    Extraction reuses fixed filenames (frame_001.png ...), so stale frames
+    from an earlier run would otherwise mix into the new results. Only
+    files matching the extraction naming pattern are removed.
+    """
+
+    removed = 0
+    for path in Path(output_dir).glob("frame_*.png"):
+        if path.is_file():
+            path.unlink()
+            removed += 1
+    return removed
+
+
 def scaled_size(
     frame_size: tuple[int, int], target_width: int | None
 ) -> tuple[int, int]:
@@ -116,6 +132,7 @@ class VideoFrameExtractor(QObject):
         self._target_width = target_width
         self._output_dir = Path(output_dir)
         self._output_dir.mkdir(parents=True, exist_ok=True)
+        clear_old_frames(self._output_dir)
 
         self._waiting_for_load = True
         self._player.setSource(QUrl.fromLocalFile(str(video_path)))
