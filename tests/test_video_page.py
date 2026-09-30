@@ -24,11 +24,16 @@ class StubExtractor(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.started: list[tuple] = []
+        self.cancelled = 0
         StubExtractor.instances.append(self)
 
     def start(self, video_path, timestamps, output_dir, target_width=None):
         self.started.append((video_path, timestamps, output_dir, target_width))
         return True
+
+    def cancel(self):
+        self.cancelled += 1
+        self.failed.emit("已取消提取")
 
 
 def _settings(tmp_path) -> AppSettings:
@@ -161,7 +166,8 @@ def test_extract_uses_current_position_and_parameters(tmp_path, monkeypatch):
     page.width_spin.setValue(1280)
     page.extract_button.click()
 
-    assert not page.extract_button.isEnabled()
+    assert page.extract_button.isEnabled()
+    assert page.extract_button.text() == "取消提取"
     extractor = StubExtractor.instances[-1]
     video_path, timestamps, output_dir, target_width = extractor.started[0]
     assert video_path == video_entry.main_file
@@ -172,9 +178,31 @@ def test_extract_uses_current_position_and_parameters(tmp_path, monkeypatch):
     extractor.finished.emit([output_dir / "frame_001.png"])
 
     assert page.extract_button.isEnabled()
+    assert page.extract_button.text() == "提取视频帧"
     assert page.open_button.isEnabled()
     assert "已保存 1 帧" in page.result_label.text()
     assert page._last_output_dir == output_dir
+
+
+def test_extract_button_cancels_running_extraction(tmp_path, monkeypatch):
+    page = _page()
+    video_entry = _video_entry(tmp_path)
+    monkeypatch.setattr(video_page_module, "VideoFrameExtractor", StubExtractor)
+
+    page.set_settings(_settings(tmp_path))
+    page.set_entries([video_entry])
+    page.player.durationChanged.emit(30_000)
+    page.extract_button.click()
+
+    extractor = StubExtractor.instances[-1]
+    assert extractor.cancelled == 0
+
+    page.extract_button.click()
+
+    assert extractor.cancelled == 1
+    assert page.extract_button.text() == "提取视频帧"
+    assert page.extract_button.isEnabled()
+    assert "已取消提取" in page.result_label.text()
 
 
 def test_extract_defaults_to_original_size_and_five_frames(tmp_path, monkeypatch):

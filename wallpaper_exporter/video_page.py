@@ -240,7 +240,7 @@ class VideoFramePage(QWidget):
         self.extract_button = QPushButton("提取视频帧")
         self.extract_button.setObjectName("extractButton")
         self.extract_button.setEnabled(False)
-        self.extract_button.clicked.connect(self._extract_frames)
+        self.extract_button.clicked.connect(self._on_extract_button_clicked)
         actions.addWidget(self.extract_button)
 
         self.result_label = QLabel("")
@@ -471,7 +471,19 @@ class VideoFramePage(QWidget):
         )
 
     def _update_extract_enabled(self) -> None:
-        self.extract_button.setEnabled(self._extract_enabled())
+        if self._extractor is not None:
+            self.extract_button.setText("取消提取")
+            self.extract_button.setEnabled(True)
+        else:
+            self.extract_button.setText("提取视频帧")
+            self.extract_button.setEnabled(self._extract_enabled())
+
+    def _on_extract_button_clicked(self) -> None:
+        if self._extractor is not None:
+            self.extract_button.setEnabled(False)
+            self._extractor.cancel()
+            return
+        self._extract_frames()
 
     def _extract_frames(self) -> None:
         if not self._extract_enabled():
