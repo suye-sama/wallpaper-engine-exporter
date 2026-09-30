@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QSizePolicy,
     QSlider,
     QSplitter,
     QSpinBox,
@@ -40,6 +41,9 @@ class PosterLabel(QLabel):
         super().__init__(parent)
         self.setObjectName("videoPoster")
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored
+        )
         self._poster: QPixmap | None = None
         self.set_poster(None)
 
@@ -154,6 +158,9 @@ class VideoFramePage(QWidget):
         self.poster_label = PosterLabel()
         self.video_widget = QVideoWidget()
         self.video_widget.setObjectName("videoSurface")
+        self.video_widget.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored
+        )
         self.player_stack.addWidget(self.poster_label)
         self.player_stack.addWidget(self.video_widget)
         self.player_stack.setCurrentWidget(self.poster_label)

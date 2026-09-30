@@ -6,6 +6,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QImage
 from PySide6.QtMultimedia import QMediaPlayer
+from PySide6.QtWidgets import QSizePolicy
 
 from wallpaper_exporter import video_page as video_page_module
 from wallpaper_exporter.indexer import WallpaperEntry
@@ -306,3 +307,24 @@ def test_playing_switches_from_poster_to_video_widget(tmp_path):
 
     page.player.playbackStateChanged.emit(QMediaPlayer.PlaybackState.PausedState)
     assert page.player_stack.currentWidget() is page.video_widget
+
+
+def test_preview_area_size_policy_allows_shrinking(tmp_path):
+    page = _page()
+
+    assert (
+        page.video_widget.sizePolicy().horizontalPolicy()
+        == QSizePolicy.Policy.Ignored
+    )
+    assert (
+        page.video_widget.sizePolicy().verticalPolicy()
+        == QSizePolicy.Policy.Ignored
+    )
+    assert (
+        page.poster_label.sizePolicy().horizontalPolicy()
+        == QSizePolicy.Policy.Ignored
+    )
+    assert (
+        page.poster_label.sizePolicy().verticalPolicy()
+        == QSizePolicy.Policy.Ignored
+    )
