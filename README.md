@@ -14,7 +14,9 @@
 ```text
 .
 ├─ wallpaper_exporter/                  # 桌面应用代码
-│  ├─ ui.py                              # PySide6 窗口
+│  ├─ ui.py                              # PySide6 窗口（页签）
+│  ├─ video_page.py                      # 视频帧截图页面
+│  ├─ frame_extractor.py                 # 视频帧提取核心
 │  ├─ indexer.py                         # Workshop 扫描
 │  ├─ exporter.py                        # 导出流程
 │  └─ wallpaper_engine/                  # Wallpaper Engine 合成/抓图工具
@@ -87,6 +89,31 @@ render_02.png ... render_05.png  # 动态壁纸抓图候选帧
 preview.jpg / preview.png        # 预览图
 info.json                        # 导出信息
 ```
+
+## 视频帧截图
+
+主界面顶部页签可以在「壁纸导出」和「视频帧截图」之间切换。
+
+1. 左侧列表只显示视频格式的壁纸，支持按标题或 ID 搜索。
+2. 选中视频后，右侧预览播放器可以播放/暂停，拖动进度条可以定位到指定位置。
+3. 在「提取参数」中设定采样间隔、帧总数和图片大小（原始尺寸或自定义宽度等比缩放）。
+4. 点击「提取视频帧」，从当前播放进度开始，按采样间隔依次截取指定数量的帧；
+   超出视频时长的帧会自动丢弃。
+
+导出结果会放到：
+
+```text
+图片\Wallpaper Engine Exports\视频帧\<壁纸标题>\
+```
+
+可能生成的文件：
+
+```text
+frame_001.png frame_002.png ...   # 按采样顺序命名的帧图片
+```
+
+帧解码依赖系统解码器（Windows Media Foundation），个别编码（如部分 webm）
+可能无法预览或提取；提取过程中界面保持可操作，单帧 4 秒超时会自动跳过。
 
 ## 单独使用合成/抓图命令
 
