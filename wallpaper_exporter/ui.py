@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QStatusBar,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -30,6 +31,7 @@ from .indexer import (
     scan_workshop,
 )
 from .settings import AppSettings, load_settings
+from .video_page import VideoFramePage
 
 
 GRID_CARD_WIDTH = 180
@@ -124,8 +126,16 @@ class MainWindow(QMainWindow):
             self.scan_now()
 
     def _build_ui(self) -> None:
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self._build_gallery_page(), "壁纸导出")
+        self.video_page = VideoFramePage()
+        self.tabs.addTab(self.video_page, "视频帧截图")
+        self.setCentralWidget(self.tabs)
+
+        self.setStatusBar(QStatusBar())
+
+    def _build_gallery_page(self) -> QWidget:
         root = QWidget()
-        self.setCentralWidget(root)
         outer = QVBoxLayout(root)
         outer.setContentsMargins(14, 14, 14, 10)
         outer.setSpacing(10)
@@ -164,8 +174,7 @@ class MainWindow(QMainWindow):
         )
         self.gallery_scroll.setWidget(self.gallery)
         outer.addWidget(self.gallery_scroll, 1)
-
-        self.setStatusBar(QStatusBar())
+        return root
 
     def _apply_style(self) -> None:
         self.setStyleSheet(
@@ -234,6 +243,77 @@ class MainWindow(QMainWindow):
                 background: #245bd0;
                 border-color: #245bd0;
             }
+            QPushButton#extractButton {
+                background: #2f6fed;
+                border-color: #2f6fed;
+                color: #ffffff;
+            }
+            QPushButton#extractButton:hover {
+                background: #245bd0;
+                border-color: #245bd0;
+            }
+            QPushButton#extractButton:disabled {
+                color: #f3f4f6;
+                background: #9db8f5;
+                border-color: #9db8f5;
+            }
+            QTabWidget::pane {
+                border: none;
+            }
+            QTabBar::tab {
+                background: transparent;
+                padding: 8px 18px;
+            }
+            QTabBar::tab:selected {
+                color: #2f6fed;
+                font-weight: 600;
+                border-bottom: 2px solid #2f6fed;
+            }
+            QListWidget {
+                background: #ffffff;
+                border: 1px solid #dfe3ea;
+                border-radius: 6px;
+            }
+            QListWidget::item {
+                padding: 6px;
+                border-radius: 4px;
+            }
+            QListWidget::item:selected {
+                background: #eaf1ff;
+                color: #1f2937;
+            }
+            QGroupBox {
+                border: 1px solid #dfe3ea;
+                border-radius: 6px;
+                margin-top: 10px;
+                padding: 8px 8px 8px 8px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 4px;
+                color: #64748b;
+            }
+            QWidget#videoSurface {
+                background: #111827;
+                border-radius: 4px;
+            }
+            QSlider::groove:horizontal {
+                height: 5px;
+                background: #d1d5db;
+                border-radius: 2px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #2f6fed;
+                border-radius: 2px;
+            }
+            QSlider::handle:horizontal {
+                background: #ffffff;
+                border: 1px solid #2f6fed;
+                width: 12px;
+                margin: -5px 0;
+                border-radius: 5px;
+            }
             """
         )
 
@@ -246,6 +326,7 @@ class MainWindow(QMainWindow):
         if workshop_dir is None or not workshop_dir.is_dir():
             self.entries = []
             self._apply_filter()
+            self._sync_video_page()
             self.statusBar().showMessage(
                 "找不到 Wallpaper Engine Workshop，已重新自动查找 Steam 库。"
             )
@@ -256,11 +337,16 @@ class MainWindow(QMainWindow):
         try:
             self.entries = scan_workshop(workshop_dir)
             self._apply_filter()
+            self._sync_video_page()
             self.statusBar().showMessage(f"扫描完成：{len(self.entries)} 项", 5000)
         except Exception as exc:
             QMessageBox.critical(self, "扫描失败", str(exc))
         finally:
             QApplication.restoreOverrideCursor()
+
+    def _sync_video_page(self) -> None:
+        self.video_page.set_settings(self.settings)
+        self.video_page.set_entries(self.entries)
 
     def _apply_filter(self) -> None:
         text = self.search_edit.text().strip().lower()
