@@ -325,6 +325,57 @@ def test_playing_switches_from_poster_to_video_widget(tmp_path):
     assert page.player_stack.currentWidget() is page.video_widget
 
 
+def test_slider_release_shows_video_and_prerolls_frame(monkeypatch, tmp_path):
+    page = _page()
+    video_entry = _video_entry(tmp_path)
+    page.set_entries([video_entry])
+    page.player.durationChanged.emit(30_000)
+
+    played: list[bool] = []
+    paused: list[bool] = []
+    monkeypatch.setattr(page.player, "play", lambda: played.append(True))
+    monkeypatch.setattr(page.player, "pause", lambda: paused.append(True))
+
+    page.position_slider.setValue(5_000)
+    page._on_slider_released()
+
+    assert page.player_stack.currentWidget() is page.video_widget
+    assert played == [True]
+    assert page.audio_output.isMuted()
+
+    monkeypatch.setattr(
+        page.player,
+        "playbackState",
+        lambda: QMediaPlayer.PlaybackState.PlayingState,
+    )
+    page._finish_preroll(page._preroll_token)
+
+    assert paused == [True]
+    assert not page.audio_output.isMuted()
+
+
+def test_user_play_cancels_preroll(monkeypatch, tmp_path):
+    page = _page()
+    video_entry = _video_entry(tmp_path)
+    page.set_entries([video_entry])
+    page.player.durationChanged.emit(30_000)
+
+    monkeypatch.setattr(page.player, "play", lambda: None)
+    paused: list[bool] = []
+    monkeypatch.setattr(page.player, "pause", lambda: paused.append(True))
+
+    page.position_slider.setValue(5_000)
+    page._on_slider_released()
+    stale_token = page._preroll_token
+
+    page._toggle_playback()
+    page._finish_preroll(stale_token)
+
+    assert page._preroll_token > stale_token
+    assert paused == []
+    assert not page.audio_output.isMuted()
+
+
 def test_preview_area_size_policy_allows_shrinking(tmp_path):
     page = _page()
 

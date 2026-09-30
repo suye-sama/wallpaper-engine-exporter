@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, QUrl
+from PySide6.QtCore import QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtMultimedia import QAudioOutput, QMediaMetaData, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
@@ -32,6 +32,7 @@ from .paths import frames_folder_for
 from .settings import AppSettings
 
 LIST_ICON_SIZE = QSize(72, 40)
+PREROLL_MS = 250
 
 
 class PosterLabel(QLabel):
@@ -107,6 +108,8 @@ class VideoFramePage(QWidget):
         self._last_output_dir: Path | None = None
         self._duration = 0
         self._video_resolution: tuple[int, int] | None = None
+        self._user_muted = False
+        self._preroll_token = 0
 
         self._build_ui()
 
@@ -323,6 +326,7 @@ class VideoFramePage(QWidget):
         if entry is self.current_entry:
             return
         self.current_entry = entry
+        self._cancel_preroll()
         self.poster_label.set_poster(
             QPixmap(str(entry.preview_path))
             if entry.preview_path and entry.preview_path.is_file()
@@ -335,6 +339,7 @@ class VideoFramePage(QWidget):
 
     def _unload_current(self) -> None:
         self.current_entry = None
+        self._cancel_preroll()
         self.player.setSource(QUrl())
         self.poster_label.set_poster(None)
         self.player_stack.setCurrentWidget(self.poster_label)
@@ -348,6 +353,7 @@ class VideoFramePage(QWidget):
         self._update_extract_enabled()
 
     def _toggle_playback(self) -> None:
+        self._cancel_preroll()
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.player.pause()
         else:
@@ -384,6 +390,8 @@ class VideoFramePage(QWidget):
 
     def _on_slider_pressed(self) -> None:
         self._dragging_slider = True
+        if self.current_entry is not None:
+            self.player_stack.setCurrentWidget(self.video_widget)
 
     def _on_slider_moved(self, position: int) -> None:
         self._update_time_label(position)
@@ -391,6 +399,36 @@ class VideoFramePage(QWidget):
     def _on_slider_released(self) -> None:
         self._dragging_slider = False
         self.player.setPosition(self.position_slider.value())
+        if self.current_entry is None:
+            return
+        self.player_stack.setCurrentWidget(self.video_widget)
+        if self.player.playbackState() != QMediaPlayer.PlaybackState.PlayingState:
+            self._preroll_frame()
+
+    def _preroll_frame(self) -> None:
+        """Briefly play muted then pause so the seeked frame actually renders.
+
+        A paused player that has never played delivers no frames after a
+        seek, so a short muted play/pause is the only reliable way to show
+        the frame at the slider position.
+        """
+
+        self._preroll_token += 1
+        token = self._preroll_token
+        self.audio_output.setMuted(True)
+        self.player.play()
+        QTimer.singleShot(PREROLL_MS, lambda: self._finish_preroll(token))
+
+    def _finish_preroll(self, token: int) -> None:
+        if token != self._preroll_token:
+            return
+        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self.player.pause()
+        self.audio_output.setMuted(self._user_muted)
+
+    def _cancel_preroll(self) -> None:
+        self._preroll_token += 1
+        self.audio_output.setMuted(self._user_muted)
 
     def _on_player_error(self, error, message: str) -> None:
         if message:
