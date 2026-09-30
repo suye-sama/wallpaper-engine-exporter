@@ -4,6 +4,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QObject, Signal
+from PySide6.QtMultimedia import QMediaPlayer
 
 from wallpaper_exporter import video_page as video_page_module
 from wallpaper_exporter.indexer import WallpaperEntry
@@ -225,3 +226,76 @@ def test_extract_disabled_without_duration_or_selection(tmp_path):
 
     page.player.durationChanged.emit(30_000)
     assert page.extract_button.isEnabled()
+
+
+def test_width_spin_only_visible_in_custom_size_mode(tmp_path):
+    page = _page()
+
+    assert page.width_spin.isHidden()
+
+    page.size_combo.setCurrentIndex(1)
+    assert not page.width_spin.isHidden()
+    assert page.width_spin.isEnabled()
+
+    page.size_combo.setCurrentIndex(0)
+    assert page.width_spin.isHidden()
+
+
+def test_output_hint_shows_original_and_scaled_sizes(tmp_path):
+    page = _page()
+    assert page.output_size_label.text() == ""
+
+    page._video_resolution = (2560, 1440)
+    page._update_output_hint()
+    assert "2560×1440（原始）" in page.output_size_label.text()
+
+    page.size_combo.setCurrentIndex(1)
+    page.width_spin.setValue(1280)
+    assert "2560×1440 → 1280×720" in page.output_size_label.text()
+
+
+def test_loaded_media_triggers_first_frame_and_resolution(monkeypatch, tmp_path):
+    page = _page()
+    video_entry = _video_entry(tmp_path)
+    page.set_entries([video_entry])
+
+    shown: list[bool] = []
+    monkeypatch.setattr(page, "_show_first_frame", lambda: shown.append(True))
+
+    def fake_read_resolution() -> None:
+        page._video_resolution = (2560, 1440)
+        page._update_output_hint()
+
+    monkeypatch.setattr(page, "_read_video_resolution", fake_read_resolution)
+
+    page.player.mediaStatusChanged.emit(QMediaPlayer.MediaStatus.LoadedMedia)
+
+    assert shown == [True]
+    assert "2560×1440（原始）" in page.output_size_label.text()
+
+
+def test_finish_auto_preview_ignores_stale_tokens(tmp_path):
+    page = _page()
+    page._auto_previewing = True
+    page._auto_pause_token = 1
+
+    page._finish_auto_preview(token=0)
+
+    assert page._auto_previewing
+
+
+def test_user_play_cancels_auto_preview(monkeypatch, tmp_path):
+    page = _page()
+    video_entry = _video_entry(tmp_path)
+    page.set_entries([video_entry])
+    page._auto_previewing = True
+    token = page._auto_pause_token
+    played: list[bool] = []
+    monkeypatch.setattr(page.player, "play", lambda: played.append(True))
+
+    page._toggle_playback()
+
+    assert played == [True]
+    assert not page._auto_previewing
+    assert page._auto_pause_token > token
+    assert not page.audio_output.isMuted()

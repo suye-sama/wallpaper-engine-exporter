@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, QUrl
+from PySide6.QtCore import QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+from PySide6.QtMultimedia import QAudioOutput, QMediaMetaData, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
     QComboBox,
@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .frame_extractor import VideoFrameExtractor, compute_timestamps
+from .frame_extractor import VideoFrameExtractor, compute_timestamps, scaled_size
 from .indexer import DIRECT_VIDEO_SUFFIXES, WallpaperEntry
 from .paths import frames_folder_for
 from .settings import AppSettings
@@ -65,6 +65,9 @@ class VideoFramePage(QWidget):
         self._extractor: VideoFrameExtractor | None = None
         self._last_output_dir: Path | None = None
         self._duration = 0
+        self._video_resolution: tuple[int, int] | None = None
+        self._auto_previewing = False
+        self._auto_pause_token = 0
 
         self._build_ui()
 
@@ -167,9 +170,15 @@ class VideoFramePage(QWidget):
         self.width_spin.setValue(1920)
         self.width_spin.setSuffix(" px")
         self.width_spin.setEnabled(False)
+        self.width_spin.setVisible(False)
+        self.width_spin.valueChanged.connect(self._update_output_hint)
         params_layout.addWidget(self.width_spin)
 
         params_layout.addStretch(1)
+
+        self.output_size_label = QLabel("")
+        self.output_size_label.setObjectName("muted")
+        params_layout.addWidget(self.output_size_label)
         layout.addWidget(params)
 
         hint = QLabel("从当前播放进度开始，按采样间隔依次截取指定数量的帧。")
@@ -202,6 +211,7 @@ class VideoFramePage(QWidget):
         self.player.durationChanged.connect(self._on_duration_changed)
         self.player.positionChanged.connect(self._on_position_changed)
         self.player.playbackStateChanged.connect(self._on_playback_state_changed)
+        self.player.mediaStatusChanged.connect(self._on_media_status)
         self.player.errorOccurred.connect(self._on_player_error)
 
         return panel
@@ -272,10 +282,13 @@ class VideoFramePage(QWidget):
 
     def _unload_current(self) -> None:
         self.current_entry = None
+        self._cancel_auto_preview()
         self.player.setSource(QUrl())
         self.play_button.setEnabled(False)
         self.play_button.setText("播放")
         self._duration = 0
+        self._video_resolution = None
+        self._update_output_hint()
         self.position_slider.setRange(0, 0)
         self._update_extract_enabled()
 
@@ -283,7 +296,45 @@ class VideoFramePage(QWidget):
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.player.pause()
         else:
+            self._cancel_auto_preview()
             self.player.play()
+
+    def _on_media_status(self, status) -> None:
+        if status != QMediaPlayer.MediaStatus.LoadedMedia:
+            return
+        self._read_video_resolution()
+        if self.current_entry is not None:
+            self._show_first_frame()
+
+    def _read_video_resolution(self) -> None:
+        size = self.player.metaData().value(QMediaMetaData.Key.Resolution)
+        self._video_resolution = (
+            (size.width(), size.height()) if size and size.width() > 0 else None
+        )
+        self._update_output_hint()
+
+    def _show_first_frame(self) -> None:
+        """Briefly play then pause so the first frame appears instead of a black panel."""
+
+        self._auto_previewing = True
+        self._auto_pause_token += 1
+        token = self._auto_pause_token
+        self.audio_output.setMuted(True)
+        self.player.play()
+        QTimer.singleShot(250, lambda: self._finish_auto_preview(token))
+
+    def _finish_auto_preview(self, token: int) -> None:
+        if token != self._auto_pause_token or not self._auto_previewing:
+            return
+        self._auto_previewing = False
+        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self.player.pause()
+        self.audio_output.setMuted(False)
+
+    def _cancel_auto_preview(self) -> None:
+        self._auto_previewing = False
+        self._auto_pause_token += 1
+        self.audio_output.setMuted(False)
 
     def _on_playback_state_changed(self, state) -> None:
         playing = state == QMediaPlayer.PlaybackState.PlayingState
@@ -324,7 +375,23 @@ class VideoFramePage(QWidget):
     # -- extraction ------------------------------------------------------------
 
     def _on_size_mode_changed(self) -> None:
-        self.width_spin.setEnabled(self.size_combo.currentIndex() == 1)
+        custom = self.size_combo.currentIndex() == 1
+        self.width_spin.setEnabled(custom)
+        self.width_spin.setVisible(custom)
+        self._update_output_hint()
+
+    def _update_output_hint(self) -> None:
+        if not self._video_resolution:
+            self.output_size_label.setText("")
+            return
+        width, height = self._video_resolution
+        if self.size_combo.currentIndex() == 1:
+            out_width, out_height = scaled_size(
+                self._video_resolution, self.width_spin.value()
+            )
+            self.output_size_label.setText(f"{width}×{height} → {out_width}×{out_height}")
+        else:
+            self.output_size_label.setText(f"{width}×{height}（原始）")
 
     def _extract_enabled(self) -> bool:
         return (
