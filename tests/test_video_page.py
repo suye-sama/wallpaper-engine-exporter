@@ -404,6 +404,40 @@ def test_user_play_cancels_preroll(monkeypatch, tmp_path):
     assert not page.audio_output.isMuted()
 
 
+def test_mute_button_toggles_audio_output(tmp_path):
+    page = _page()
+
+    assert not page.audio_output.isMuted()
+    assert page.mute_button.text() == "静音"
+
+    page.mute_button.click()
+    assert page.audio_output.isMuted()
+    assert page.mute_button.text() == "取消静音"
+
+    page.mute_button.click()
+    assert not page.audio_output.isMuted()
+    assert page.mute_button.text() == "静音"
+
+
+def test_mute_during_preroll_applies_after_preroll_finishes(monkeypatch, tmp_path):
+    page = _page()
+    video_entry = _video_entry(tmp_path)
+    page.set_entries([video_entry])
+    page.player.durationChanged.emit(30_000)
+    monkeypatch.setattr(page.player, "play", lambda: None)
+
+    page.position_slider.setValue(5_000)
+    page._on_slider_released()
+    assert page.audio_output.isMuted()
+
+    page.mute_button.click()
+    assert page._user_muted
+    assert page.audio_output.isMuted()
+
+    page._finish_preroll(page._preroll_token)
+    assert page.audio_output.isMuted()
+
+
 def test_preview_area_size_policy_allows_shrinking(tmp_path):
     page = _page()
 

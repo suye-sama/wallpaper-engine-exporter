@@ -110,6 +110,7 @@ class VideoFramePage(QWidget):
         self._video_resolution: tuple[int, int] | None = None
         self._user_muted = False
         self._preroll_token = 0
+        self._preroll_in_progress = False
 
         self._build_ui()
 
@@ -174,6 +175,11 @@ class VideoFramePage(QWidget):
         self.play_button.setEnabled(False)
         self.play_button.clicked.connect(self._toggle_playback)
         controls.addWidget(self.play_button)
+
+        self.mute_button = QPushButton("静音")
+        self.mute_button.setCheckable(True)
+        self.mute_button.clicked.connect(self._toggle_mute)
+        controls.addWidget(self.mute_button)
 
         self.position_slider = QSlider(Qt.Orientation.Horizontal)
         self.position_slider.setEnabled(False)
@@ -359,6 +365,13 @@ class VideoFramePage(QWidget):
         else:
             self.player.play()
 
+    def _toggle_mute(self) -> None:
+        self._user_muted = self.mute_button.isChecked()
+        self.mute_button.setText("取消静音" if self._user_muted else "静音")
+        if self._preroll_in_progress:
+            return  # preroll already muted; it restores _user_muted when done
+        self.audio_output.setMuted(self._user_muted)
+
     def _on_media_status(self, status) -> None:
         if status == QMediaPlayer.MediaStatus.LoadedMedia:
             self._read_video_resolution()
@@ -415,6 +428,7 @@ class VideoFramePage(QWidget):
 
         self._preroll_token += 1
         token = self._preroll_token
+        self._preroll_in_progress = True
         self.audio_output.setMuted(True)
         self.player.play()
         QTimer.singleShot(PREROLL_MS, lambda: self._finish_preroll(token))
@@ -422,12 +436,14 @@ class VideoFramePage(QWidget):
     def _finish_preroll(self, token: int) -> None:
         if token != self._preroll_token:
             return
+        self._preroll_in_progress = False
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.player.pause()
         self.audio_output.setMuted(self._user_muted)
 
     def _cancel_preroll(self) -> None:
         self._preroll_token += 1
+        self._preroll_in_progress = False
         self.audio_output.setMuted(self._user_muted)
 
     def _on_player_error(self, error, message: str) -> None:
