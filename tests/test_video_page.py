@@ -230,6 +230,22 @@ def test_extract_disabled_without_duration_or_selection(tmp_path):
     assert page.extract_button.isEnabled()
 
 
+def test_slider_enabled_only_when_duration_known(tmp_path):
+    page = _page()
+    video_entry = _video_entry(tmp_path)
+
+    assert not page.position_slider.isEnabled()
+
+    page.set_entries([video_entry])
+    assert not page.position_slider.isEnabled()
+
+    page.player.durationChanged.emit(30_000)
+    assert page.position_slider.isEnabled()
+
+    page.set_entries([])
+    assert not page.position_slider.isEnabled()
+
+
 def test_width_spin_only_visible_in_custom_size_mode(tmp_path):
     page = _page()
 

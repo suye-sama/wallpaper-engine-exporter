@@ -344,6 +344,7 @@ class VideoFramePage(QWidget):
         self._video_resolution = None
         self._update_output_hint()
         self.position_slider.setRange(0, 0)
+        self.position_slider.setEnabled(False)
         self._update_extract_enabled()
 
     def _toggle_playback(self) -> None:
@@ -372,6 +373,7 @@ class VideoFramePage(QWidget):
     def _on_duration_changed(self, duration: int) -> None:
         self._duration = max(0, duration)
         self.position_slider.setRange(0, self._duration)
+        self.position_slider.setEnabled(self._duration > 0)
         self._update_time_label()
         self._update_extract_enabled()
 
