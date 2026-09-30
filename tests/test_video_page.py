@@ -4,6 +4,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QObject, Signal
+from PySide6.QtGui import QImage
 from PySide6.QtMultimedia import QMediaPlayer
 
 from wallpaper_exporter import video_page as video_page_module
@@ -254,13 +255,10 @@ def test_output_hint_shows_original_and_scaled_sizes(tmp_path):
     assert "2560×1440 → 1280×720" in page.output_size_label.text()
 
 
-def test_loaded_media_triggers_first_frame_and_resolution(monkeypatch, tmp_path):
+def test_loaded_media_reads_resolution_and_updates_hint(monkeypatch, tmp_path):
     page = _page()
     video_entry = _video_entry(tmp_path)
     page.set_entries([video_entry])
-
-    shown: list[bool] = []
-    monkeypatch.setattr(page, "_show_first_frame", lambda: shown.append(True))
 
     def fake_read_resolution() -> None:
         page._video_resolution = (2560, 1440)
@@ -270,32 +268,41 @@ def test_loaded_media_triggers_first_frame_and_resolution(monkeypatch, tmp_path)
 
     page.player.mediaStatusChanged.emit(QMediaPlayer.MediaStatus.LoadedMedia)
 
-    assert shown == [True]
     assert "2560×1440（原始）" in page.output_size_label.text()
 
 
-def test_finish_auto_preview_ignores_stale_tokens(tmp_path):
+def test_selecting_video_shows_poster_page_with_preview_image(tmp_path):
     page = _page()
-    page._auto_previewing = True
-    page._auto_pause_token = 1
+    video_entry = _video_entry(tmp_path)
+    preview = video_entry.root / "preview.png"
+    image = QImage(8, 8, QImage.Format.Format_RGB32)
+    image.fill(0xFF0000)
+    image.save(str(preview))
+    video_entry.preview_path = preview
 
-    page._finish_auto_preview(token=0)
+    page.set_entries([video_entry])
 
-    assert page._auto_previewing
+    assert page.player_stack.currentWidget() is page.poster_label
+    assert page.poster_label._poster is not None
 
 
-def test_user_play_cancels_auto_preview(monkeypatch, tmp_path):
+def test_poster_without_preview_shows_placeholder_text(tmp_path):
+    page = _page()
+    video_entry = _video_entry(tmp_path)
+
+    page.set_entries([video_entry])
+
+    assert page.player_stack.currentWidget() is page.poster_label
+    assert page.poster_label.text() == "没有预览"
+
+
+def test_playing_switches_from_poster_to_video_widget(tmp_path):
     page = _page()
     video_entry = _video_entry(tmp_path)
     page.set_entries([video_entry])
-    page._auto_previewing = True
-    token = page._auto_pause_token
-    played: list[bool] = []
-    monkeypatch.setattr(page.player, "play", lambda: played.append(True))
 
-    page._toggle_playback()
+    page.player.playbackStateChanged.emit(QMediaPlayer.PlaybackState.PlayingState)
+    assert page.player_stack.currentWidget() is page.video_widget
 
-    assert played == [True]
-    assert not page._auto_previewing
-    assert page._auto_pause_token > token
-    assert not page.audio_output.isMuted()
+    page.player.playbackStateChanged.emit(QMediaPlayer.PlaybackState.PausedState)
+    assert page.player_stack.currentWidget() is page.video_widget

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, QTimer, QUrl
+from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtMultimedia import QAudioOutput, QMediaMetaData, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QSlider,
     QSplitter,
     QSpinBox,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -30,6 +31,42 @@ from .paths import frames_folder_for
 from .settings import AppSettings
 
 LIST_ICON_SIZE = QSize(72, 40)
+
+
+class PosterLabel(QLabel):
+    """海报区域：显示壁纸预览图，保持宽高比自适应大小。"""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("videoPoster")
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._poster: QPixmap | None = None
+        self.set_poster(None)
+
+    def set_poster(self, pixmap: QPixmap | None) -> None:
+        self._poster = pixmap if pixmap is not None and not pixmap.isNull() else None
+        self._rescale()
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._rescale()
+
+    def _rescale(self) -> None:
+        if self._poster is None:
+            self.setPixmap(QPixmap())
+            self.setText("没有预览")
+            return
+        size = self.size()
+        if size.width() <= 1 or size.height() <= 1:
+            return
+        self.setPixmap(
+            self._poster.scaled(
+                size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+        self.setText("")
 
 
 def format_time(ms: int) -> str:
@@ -66,8 +103,6 @@ class VideoFramePage(QWidget):
         self._last_output_dir: Path | None = None
         self._duration = 0
         self._video_resolution: tuple[int, int] | None = None
-        self._auto_previewing = False
-        self._auto_pause_token = 0
 
         self._build_ui()
 
@@ -115,9 +150,14 @@ class VideoFramePage(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
+        self.player_stack = QStackedWidget()
+        self.poster_label = PosterLabel()
         self.video_widget = QVideoWidget()
         self.video_widget.setObjectName("videoSurface")
-        layout.addWidget(self.video_widget, 1)
+        self.player_stack.addWidget(self.poster_label)
+        self.player_stack.addWidget(self.video_widget)
+        self.player_stack.setCurrentWidget(self.poster_label)
+        layout.addWidget(self.player_stack, 1)
 
         controls = QHBoxLayout()
         self.play_button = QPushButton("播放")
@@ -276,14 +316,21 @@ class VideoFramePage(QWidget):
         if entry is self.current_entry:
             return
         self.current_entry = entry
+        self.poster_label.set_poster(
+            QPixmap(str(entry.preview_path))
+            if entry.preview_path and entry.preview_path.is_file()
+            else None
+        )
+        self.player_stack.setCurrentWidget(self.poster_label)
         self.player.setSource(QUrl.fromLocalFile(str(entry.main_file)))
         self.play_button.setEnabled(True)
         self._update_extract_enabled()
 
     def _unload_current(self) -> None:
         self.current_entry = None
-        self._cancel_auto_preview()
         self.player.setSource(QUrl())
+        self.poster_label.set_poster(None)
+        self.player_stack.setCurrentWidget(self.poster_label)
         self.play_button.setEnabled(False)
         self.play_button.setText("播放")
         self._duration = 0
@@ -296,15 +343,11 @@ class VideoFramePage(QWidget):
         if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.player.pause()
         else:
-            self._cancel_auto_preview()
             self.player.play()
 
     def _on_media_status(self, status) -> None:
-        if status != QMediaPlayer.MediaStatus.LoadedMedia:
-            return
-        self._read_video_resolution()
-        if self.current_entry is not None:
-            self._show_first_frame()
+        if status == QMediaPlayer.MediaStatus.LoadedMedia:
+            self._read_video_resolution()
 
     def _read_video_resolution(self) -> None:
         size = self.player.metaData().value(QMediaMetaData.Key.Resolution)
@@ -313,31 +356,10 @@ class VideoFramePage(QWidget):
         )
         self._update_output_hint()
 
-    def _show_first_frame(self) -> None:
-        """Briefly play then pause so the first frame appears instead of a black panel."""
-
-        self._auto_previewing = True
-        self._auto_pause_token += 1
-        token = self._auto_pause_token
-        self.audio_output.setMuted(True)
-        self.player.play()
-        QTimer.singleShot(250, lambda: self._finish_auto_preview(token))
-
-    def _finish_auto_preview(self, token: int) -> None:
-        if token != self._auto_pause_token or not self._auto_previewing:
-            return
-        self._auto_previewing = False
-        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
-            self.player.pause()
-        self.audio_output.setMuted(False)
-
-    def _cancel_auto_preview(self) -> None:
-        self._auto_previewing = False
-        self._auto_pause_token += 1
-        self.audio_output.setMuted(False)
-
     def _on_playback_state_changed(self, state) -> None:
         playing = state == QMediaPlayer.PlaybackState.PlayingState
+        if playing:
+            self.player_stack.setCurrentWidget(self.video_widget)
         self.play_button.setText("暂停" if playing else "播放")
 
     def _on_duration_changed(self, duration: int) -> None:

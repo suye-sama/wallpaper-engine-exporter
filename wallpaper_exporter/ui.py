@@ -298,6 +298,11 @@ class MainWindow(QMainWindow):
                 background: #111827;
                 border-radius: 4px;
             }
+            QLabel#videoPoster {
+                background: #111827;
+                color: #e5e7eb;
+                border-radius: 4px;
+            }
             QSlider::groove:horizontal {
                 height: 5px;
                 background: #d1d5db;

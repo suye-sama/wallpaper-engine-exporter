@@ -58,13 +58,21 @@ def probe_first_frame() -> None:
     sink.videoFrameChanged.connect(lambda frame: frames.append(1))
 
     state = {"done": False}
-    QTimer.singleShot(6_000, lambda: state.update(done=True))
+
+    def kick() -> None:
+        page.player.play()
+        QTimer.singleShot(400, page.player.pause)
+        QTimer.singleShot(2_000, lambda: state.update(done=True))
+
+    QTimer.singleShot(500, kick)
 
     while not state["done"]:
         app.processEvents()
 
     print(
-        "| frames delivered:", len(frames),
+        "| poster shown first:", page.poster_label.text() or "pixmap",
+        "| frames delivered while playing:", len(frames),
+        "| stack on video:", page.player_stack.currentWidget() is page.video_widget,
         "| resolution:", page._video_resolution,
         "| final state:", page.player.playbackState(),
     )
